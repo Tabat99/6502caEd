@@ -1,4 +1,4 @@
-This is a project that I've been working on for sometime bust let'
+This is a project that I've been working on for sometime and it's still not finished. However, I'm posting this to github in case anyone is interested in testing/using it. All files are saved in text for source code.
 
 # 6502caEd
 
