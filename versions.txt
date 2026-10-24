@@ -1,0 +1,8 @@
+# 6502caEd version numbers
+# Format: key = value
+# Blank lines and lines starting with # are ignored.
+# All whitespace (spaces, tabs, CR) is stripped before parsing.
+
+cli = 1.00
+tui = 1.00
+gtk = 1.00

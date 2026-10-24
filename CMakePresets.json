@@ -1,0 +1,140 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 23,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "linux-gcc-release-gtk",
+      "displayName": "Linux (GCC) Release + GTK",
+      "inherits": "linux-gcc-release",
+      "cacheVariables": {
+        "ED_BUILD_GTK": "ON",
+        "ED_BUILD_SIM": {
+          "type": "BOOL",
+          "value": "ON"
+        }
+      }
+    },
+    {
+      "name": "linux-gcc-debug",
+      "displayName": "Linux (GCC) Debug",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    },
+    {
+      "name": "linux-gcc-release",
+      "displayName": "Linux (GCC) Release",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    },
+    {
+      "name": "linux-clang-debug",
+      "displayName": "Linux (Clang) Debug",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "linux-clang-release",
+      "displayName": "Linux (Clang) Release",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "win-mingw64-release",
+      "displayName": "Windows (MinGW-w64 x64) Release",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_SYSTEM_NAME": "Windows",
+        "CMAKE_C_COMPILER": "x86_64-w64-mingw32-gcc",
+        "CMAKE_CXX_COMPILER": "x86_64-w64-mingw32-g++",
+        "ED_BUILD_TUI": {
+          "type": "BOOL",
+          "value": "ON"
+        },
+        "ED_BUILD_GTK": {
+          "type": "BOOL",
+          "value": "OFF"
+        }
+      }
+    },
+    {
+      "name": "win-mingw32-release",
+      "displayName": "Windows (MinGW-w64 x86) Release",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_SYSTEM_NAME": "Windows",
+        "CMAKE_C_COMPILER": "i686-w64-mingw32-gcc",
+        "CMAKE_CXX_COMPILER": "i686-w64-mingw32-g++",
+        "ED_BUILD_TUI": {
+          "type": "BOOL",
+          "value": "ON"
+        },
+        "ED_BUILD_GTK": {
+          "type": "BOOL",
+          "value": "OFF"
+        }
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "linux-gcc-release-gtk",
+      "configurePreset": "linux-gcc-release-gtk"
+    },
+    {
+      "name": "linux-gcc-debug",
+      "configurePreset": "linux-gcc-debug"
+    },
+    {
+      "name": "linux-gcc-release",
+      "configurePreset": "linux-gcc-release"
+    },
+    {
+      "name": "linux-clang-debug",
+      "configurePreset": "linux-clang-debug"
+    },
+    {
+      "name": "linux-clang-release",
+      "configurePreset": "linux-clang-release"
+    },
+    {
+      "name": "win-mingw64-release",
+      "configurePreset": "win-mingw64-release"
+    },
+    {
+      "name": "win-mingw32-release",
+      "configurePreset": "win-mingw32-release"
+    }
+  ],
+  "testPresets": []
+}

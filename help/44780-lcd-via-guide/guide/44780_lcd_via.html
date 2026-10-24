@@ -1,0 +1,1817 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang xml:lang>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>HD44780 LCD Simulator VIA Guide</title>
+  <style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+  <style type="text/css">
+
+body {
+background-color: #1e1e1e;
+color: #d4d4d4;
+font-family: 'Segoe UI', Ubuntu, sans-serif;
+font-size: 15px;
+line-height: 1.7;
+max-width: 920px;
+margin: 0 auto;
+padding: 2em 2.5em;
+}
+
+h1 {
+color: #4fc3f7;
+font-size: 2em;
+border-bottom: 2px solid #4fc3f7;
+padding-bottom: 0.3em;
+margin-top: 0.5em;
+}
+h2 {
+color: #fbc377;
+font-size: 1.5em;
+border-bottom: 1px solid #3a3a3a;
+padding-bottom: 0.2em;
+margin-top: 2em;
+}
+h3 {
+color: #a5d6a7;
+font-size: 1.15em;
+margin-top: 1.5em;
+}
+h4 {
+color: #ffb74d;
+font-size: 1em;
+margin-top: 1.2em;
+}
+
+a {
+color: #4fc3f7;
+text-decoration: none;
+}
+a:hover {
+text-decoration: underline;
+color: #81d4fa;
+}
+
+code {
+background-color: #252526;
+color: #ffb74d;
+font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+font-size: 0.9em;
+padding: 0.1em 0.45em;
+border-radius: 3px;
+border: 1px solid #333;
+}
+
+pre {
+background-color: #252526;
+border-left: 3px solid #4fc3f7;
+border-radius: 4px;
+padding: 1em 1.2em;
+overflow-x: auto;
+margin: 1em 0;
+}
+pre code {
+background: none;
+border: none;
+padding: 0;
+color: #d4d4d4;
+font-size: 0.92em;
+}
+
+
+code span.pp {
+color: #b48ead;
+font-style: normal;
+font-weight: normal;
+}
+
+code span.bu {
+color: #4fc3f7;
+}
+
+code span.co {
+color: #6a9955;
+font-style: italic;
+}
+
+code span.bn,
+code span.dv {
+color: #ffb74d;
+}
+
+code span.st {
+color: #ce9178;
+}
+
+code span.op {
+color: #d4d4d4;
+}
+
+code span.fu {
+color: #dcdcaa;
+}
+
+code span.va {
+color: #9cdcfe;
+}
+
+
+code span.er {
+color: #d4d4d4;
+font-weight: normal;
+text-decoration: none;
+border: none;
+}
+
+code span.al {
+color: #6a9955;
+font-weight: normal;
+}
+
+table {
+border-collapse: collapse;
+width: 100%;
+margin: 1em 0;
+font-size: 0.95em;
+}
+thead tr {
+background-color: #252526;
+}
+th {
+color: #4fc3f7;
+font-weight: 600;
+padding: 0.55em 1em;
+text-align: left;
+border-bottom: 2px solid #4fc3f7;
+}
+td {
+padding: 0.45em 1em;
+border-bottom: 1px solid #2e2e2e;
+vertical-align: top;
+}
+
+td:first-child {
+color: #a5d6a7;
+white-space: nowrap;
+}
+tr:hover td {
+background-color: #232323;
+}
+
+hr {
+border: none;
+border-top: 1px solid #3a3a3a;
+margin: 2em 0;
+}
+
+ul,
+ol {
+padding-left: 1.8em;
+}
+li {
+margin: 0.3em 0;
+}
+
+ul:first-of-type {
+background-color: #252526;
+border-left: 3px solid #ce93d8;
+border-radius: 4px;
+padding: 0.8em 0.8em 0.8em 2.2em;
+margin: 1em 0;
+}
+
+strong {
+color: #ffffff;
+font-weight: 600;
+}
+em {
+color: #b0bec5;
+font-style: italic;
+}
+
+blockquote {
+border-left: 3px solid #ffb74d;
+background-color: #252526;
+margin: 1em 0;
+padding: 0.6em 1em;
+border-radius: 0 4px 4px 0;
+color: #ffb74d;
+}
+
+body>p:last-child {
+margin-top: 3em;
+color: #555;
+font-size: 0.85em;
+border-top: 1px solid #2a2a2a;
+padding-top: 1em;
+}
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">HD44780 LCD Simulator VIA Guide</h1>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#connection-assumptions" id="toc-connection-assumptions">Connection Assumptions</a></li>
+<li><a href="#lcd-bus-basics" id="toc-lcd-bus-basics">LCD Bus
+Basics</a></li>
+<li><a href="#timing-rules-complete-reference" id="toc-timing-rules-complete-reference">Timing Rules — Complete
+Reference</a></li>
+<li><a href="#via-setup" id="toc-via-setup">VIA Setup</a></li>
+<li><a href="#bit-interface-code" id="toc-bit-interface-code">8-bit
+Interface Code</a></li>
+<li><a href="#bit-interface-code-1" id="toc-bit-interface-code-1">4-bit
+Interface Code</a></li>
+<li><a href="#initialising-the-lcd" id="toc-initialising-the-lcd">Initialising the LCD</a></li>
+<li><a href="#sending-commands-and-writing-text" id="toc-sending-commands-and-writing-text">Sending Commands and Writing
+Text</a></li>
+<li><a href="#reading-the-buffer" id="toc-reading-the-buffer">Reading
+the Buffer</a></li>
+<li><a href="#dd-ram-addressing" id="toc-dd-ram-addressing">DD RAM
+Addressing</a></li>
+<li><a href="#character-set-and-cg-ram" id="toc-character-set-and-cg-ram">Character Set and CG RAM</a></li>
+<li><a href="#command-list" id="toc-command-list">Command List</a></li>
+<li><a href="#delay-routines" id="toc-delay-routines">Delay
+Routines</a></li>
+<li><a href="#quirks-and-simulator-notes" id="toc-quirks-and-simulator-notes">Quirks and Simulator Notes</a></li>
+<li><a href="#minimal-demonstration-program-4-bit-mode" id="toc-minimal-demonstration-program-4-bit-mode">Minimal Demonstration
+Program, 4-bit Mode</a></li>
+<li><a href="#minimal-demonstration-program-8-bit-mode" id="toc-minimal-demonstration-program-8-bit-mode">Minimal Demonstration
+Program, 8-bit Mode</a></li>
+</ul>
+</nav>
+<p><em>MJD 2026</em></p>
+<p>A practical companion guide for the <strong>6502caEd HD44780 LCD
+simulator</strong>.</p>
+<p>This guide shows how to control a DMC / HD44780-style character LCD
+from a 6502 using a <strong>6522 VIA mapped at
+<code>$9000</code></strong>. It covers both 8-bit and 4-bit LCD
+interfaces, timing, initialisation, writing, commands, reads, character
+ROM, CG RAM, command timings, and common controller quirks.</p>
+<p>This is related to 6502caEd, but is intended to be packaged as a
+<strong>separate LCD simulator guide</strong>, not as part of the main
+product help.</p>
+<hr />
+<h2 id="connection-assumptions">Connection Assumptions</h2>
+<h3 id="via-base-address">VIA Base Address</h3>
+<p>The 6522 VIA is mapped at <strong><code>$9000</code></strong>.</p>
+<table>
+<thead>
+<tr class="header">
+<th>VIA register</th>
+<th style="text-align: right;">Address</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>ORB / IRB</td>
+<td style="text-align: right;"><code>$9000</code></td>
+<td>LCD control lines on port B</td>
+</tr>
+<tr class="even">
+<td>ORA / IRA</td>
+<td style="text-align: right;"><code>$9001</code></td>
+<td>LCD data bus on port A</td>
+</tr>
+<tr class="odd">
+<td>DDRB</td>
+<td style="text-align: right;"><code>$9002</code></td>
+<td>Port B direction</td>
+</tr>
+<tr class="even">
+<td>DDRA</td>
+<td style="text-align: right;"><code>$9003</code></td>
+<td>Port A direction</td>
+</tr>
+</tbody>
+</table>
+<p>The examples use the normal 6522 register order:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>PORTB   <span class="op">=</span> <span class="op">$</span><span class="bn">9000</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>PORTA   <span class="op">=</span> <span class="op">$</span><span class="bn">9001</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>DDRB    <span class="op">=</span> <span class="op">$</span><span class="bn">9002</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>DDRA    <span class="op">=</span> <span class="op">$</span><span class="bn">9003</span></span></code></pre></div>
+<h3 id="control-pins">Control Pins</h3>
+<p>For both 4-bit and 8-bit modes:</p>
+<table>
+<thead>
+<tr class="header">
+<th>LCD signal</th>
+<th>VIA pin</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>RS</td>
+<td>PB0</td>
+<td>Register select: command/status or data</td>
+</tr>
+<tr class="even">
+<td>R/W</td>
+<td>PB1</td>
+<td>Read/write select</td>
+</tr>
+<tr class="odd">
+<td>E</td>
+<td>PB2</td>
+<td>Enable strobe</td>
+</tr>
+</tbody>
+</table>
+<div class="sourceCode" id="cb2"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>LCD_RS  <span class="op">=</span> <span class="op">%</span><span class="dv">00000001</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>LCD_RW  <span class="op">=</span> <span class="op">%</span><span class="dv">00000010</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>LCD_E   <span class="op">=</span> <span class="op">%</span><span class="dv">00000100</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>LCD_CTL <span class="op">=</span> LCD_RS <span class="op">|</span> LCD_RW <span class="op">|</span> LCD_E</span></code></pre></div>
+<h3 id="bit-data-bus">8-bit Data Bus</h3>
+<table>
+<thead>
+<tr class="header">
+<th>LCD signal</th>
+<th>VIA pin</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>D0-D7</td>
+<td>PA0-PA7</td>
+</tr>
+</tbody>
+</table>
+<p>Use this mode when the simulator or hardware has the full LCD data
+bus wired to port A.</p>
+<h3 id="bit-data-bus-1">4-bit Data Bus</h3>
+<table>
+<thead>
+<tr class="header">
+<th>LCD signal</th>
+<th>VIA pin</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>D4-D7</td>
+<td>PA4-PA7</td>
+</tr>
+</tbody>
+</table>
+<p>In 4-bit mode, LCD DB0-DB3 are not used. On real hardware they should
+be tied low rather than left floating. In the simulator, only PA4-PA7
+are meaningful for data transfers.</p>
+<hr />
+<h2 id="lcd-bus-basics">LCD Bus Basics</h2>
+<p>The controller has two main 8-bit registers:</p>
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: right;">RS</th>
+<th style="text-align: right;">R/W</th>
+<th>Operation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td>Write instruction / command</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+<td>Read busy flag and address counter</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td>Write display or CG RAM data</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td>Read display or CG RAM data</td>
+</tr>
+</tbody>
+</table>
+<p>A write is latched by pulsing <strong>E</strong> high and then low.
+Data and control lines must be stable before the falling edge of E.</p>
+<p>In <strong>8-bit mode</strong>, one E pulse transfers one byte.</p>
+<p>In <strong>4-bit mode</strong>, one byte is transferred as two E
+pulses:</p>
+<ol type="1">
+<li>high nibble first</li>
+<li>low nibble second</li>
+</ol>
+<p>The busy flag should only be checked after both nibbles of a byte
+have been sent or read.</p>
+<hr />
+<h2 id="timing-rules-complete-reference">Timing Rules — Complete
+Reference</h2>
+<p>The LCD controller is much slower than a 6502 and a 6522 VIA. This
+guide therefore uses two separate kinds of timing:</p>
+<ol type="1">
+<li><strong>bus timing</strong>, which is the width and setup/hold
+timing of each <code>E</code> pulse;</li>
+<li><strong>instruction execution timing</strong>, which is the time the
+LCD takes internally after it has accepted a command or data byte.</li>
+</ol>
+<p>The values below are taken from the Optrex DMC/HD44780-compatible
+manual for <code>Vcc = 5.0 V ±5%</code>, <code>Vss = 0 V</code>, and
+<code>Ta = 0..50 °C</code>. The manual notes that module-specific sheets
+may give more detail, so these are the guide values for the simulator
+and typical DMC-style modules.</p>
+<h3 id="power-on-and-reset-timing">Power-on and Reset Timing</h3>
+<table>
+<colgroup>
+<col style="width: 21%" />
+<col style="width: 28%" />
+<col style="width: 28%" />
+<col style="width: 21%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Timing item</th>
+<th style="text-align: right;">Symbol / condition</th>
+<th style="text-align: right;">Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Power rise time for internal reset</td>
+<td style="text-align: right;"><code>trcc</code></td>
+<td style="text-align: right;"><code>0.1 ms &lt;= trcc &lt;= 10 ms</code></td>
+<td>Vcc rise condition needed for the LCD internal reset circuit</td>
+</tr>
+<tr class="even">
+<td>Momentary power-off time</td>
+<td style="text-align: right;"><code>toff</code></td>
+<td style="text-align: right;"><code>&gt;= 1 ms</code></td>
+<td>Required off-time before power is considered cycled</td>
+</tr>
+<tr class="odd">
+<td>Wait after Vcc reaches 4.5 V</td>
+<td style="text-align: right;">software init delay</td>
+<td style="text-align: right;"><code>&gt; 15 ms</code></td>
+<td>No data should be transferred during this time</td>
+</tr>
+<tr class="even">
+<td>First wake-up delay</td>
+<td style="text-align: right;">after first <code>$30</code> / nibble
+<code>$3</code></td>
+<td style="text-align: right;"><code>&gt; 4.1 ms</code></td>
+<td>Busy flag cannot be checked yet</td>
+</tr>
+<tr class="odd">
+<td>Second wake-up delay</td>
+<td style="text-align: right;">after second <code>$30</code> / nibble
+<code>$3</code></td>
+<td style="text-align: right;"><code>&gt; 100 us</code></td>
+<td>Busy flag still not reliable</td>
+</tr>
+<tr class="even">
+<td>Third wake-up delay</td>
+<td style="text-align: right;">after third <code>$30</code> / nibble
+<code>$3</code></td>
+<td style="text-align: right;"><code>&gt; 100 us</code></td>
+<td>Busy flag becomes usable after this write completes</td>
+</tr>
+<tr class="odd">
+<td>4-bit select delay</td>
+<td style="text-align: right;">after nibble <code>$2</code></td>
+<td style="text-align: right;"><code>&gt; 100 us</code> recommended</td>
+<td>Allows the interface-width change to settle before full-byte
+commands</td>
+</tr>
+</tbody>
+</table>
+<h3 id="write-bus-timing">Write Bus Timing</h3>
+<p>These timings apply to each write transfer. In 8-bit mode, one byte
+is one transfer. In 4-bit mode, one byte is two transfers, high nibble
+first and low nibble second.</p>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Timing item</th>
+<th style="text-align: right;">Symbol</th>
+<th style="text-align: right;">Minimum</th>
+<th style="text-align: right;">Maximum</th>
+<th>Beginner meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Enable cycle time</td>
+<td style="text-align: right;"><code>tcycle</code></td>
+<td style="text-align: right;"><code>1000 ns</code></td>
+<td style="text-align: right;">—</td>
+<td>Time from one <code>E</code> pulse to the next</td>
+</tr>
+<tr class="even">
+<td>Enable high pulse width</td>
+<td style="text-align: right;"><code>PWEH</code></td>
+<td style="text-align: right;"><code>450 ns</code></td>
+<td style="text-align: right;">—</td>
+<td><code>E</code> must stay high at least this long</td>
+</tr>
+<tr class="odd">
+<td>Enable rise/fall time</td>
+<td style="text-align: right;"><code>tEr</code>, <code>tEf</code></td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;"><code>25 ns</code></td>
+<td>Edge speed limit on real hardware</td>
+</tr>
+<tr class="even">
+<td>RS/RW setup before E</td>
+<td style="text-align: right;"><code>tAS</code></td>
+<td style="text-align: right;"><code>140 ns</code></td>
+<td style="text-align: right;">—</td>
+<td>Set <code>RS</code> and <code>R/W</code> before raising
+<code>E</code></td>
+</tr>
+<tr class="odd">
+<td>Address hold after E</td>
+<td style="text-align: right;"><code>tAH</code></td>
+<td style="text-align: right;"><code>10 ns</code></td>
+<td style="text-align: right;">—</td>
+<td>Keep <code>RS</code> and <code>R/W</code> stable just after
+<code>E</code> changes</td>
+</tr>
+<tr class="even">
+<td>Write data setup</td>
+<td style="text-align: right;"><code>tDSW</code></td>
+<td style="text-align: right;"><code>195 ns</code></td>
+<td style="text-align: right;">—</td>
+<td>Put data on PA before the LCD samples it</td>
+</tr>
+<tr class="odd">
+<td>Write data hold</td>
+<td style="text-align: right;"><code>tH</code></td>
+<td style="text-align: right;"><code>10 ns</code></td>
+<td style="text-align: right;">—</td>
+<td>Keep data stable just after the transfer</td>
+</tr>
+</tbody>
+</table>
+<h3 id="read-bus-timing">Read Bus Timing</h3>
+<p>These timings apply to busy-flag reads and data reads. In 4-bit mode
+every read uses two <code>E</code> pulses.</p>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Timing item</th>
+<th style="text-align: right;">Symbol</th>
+<th style="text-align: right;">Minimum</th>
+<th style="text-align: right;">Maximum</th>
+<th>Beginner meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Enable cycle time</td>
+<td style="text-align: right;"><code>tcycle</code></td>
+<td style="text-align: right;"><code>1000 ns</code></td>
+<td style="text-align: right;">—</td>
+<td>Time from one <code>E</code> pulse to the next</td>
+</tr>
+<tr class="even">
+<td>Enable high pulse width</td>
+<td style="text-align: right;"><code>PWEH</code></td>
+<td style="text-align: right;"><code>450 ns</code></td>
+<td style="text-align: right;">—</td>
+<td><code>E</code> must stay high while the MPU samples data</td>
+</tr>
+<tr class="odd">
+<td>Enable rise/fall time</td>
+<td style="text-align: right;"><code>tEr</code>, <code>tEf</code></td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;"><code>25 ns</code></td>
+<td>Edge speed limit on real hardware</td>
+</tr>
+<tr class="even">
+<td>RS/RW setup before E</td>
+<td style="text-align: right;"><code>tAS</code></td>
+<td style="text-align: right;"><code>140 ns</code></td>
+<td style="text-align: right;">—</td>
+<td>Set <code>RS</code> and <code>R/W</code> before raising
+<code>E</code></td>
+</tr>
+<tr class="odd">
+<td>Data delay after E high</td>
+<td style="text-align: right;"><code>tDDR</code></td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;"><code>320 ns</code></td>
+<td>Wait until LCD output data is valid</td>
+</tr>
+<tr class="even">
+<td>Read data hold</td>
+<td style="text-align: right;"><code>tH</code></td>
+<td style="text-align: right;"><code>20 ns</code></td>
+<td style="text-align: right;">—</td>
+<td>Data remains valid briefly after <code>E</code> falls</td>
+</tr>
+</tbody>
+</table>
+<h3 id="instruction-execution-timing">Instruction Execution Timing</h3>
+<p>If you do <strong>not</strong> poll the busy flag, wait at least the
+time shown here after each command or data access. The manual gives
+these times for an LCD clock of <code>250 kHz</code>; if the LCD
+oscillator changes, scale the time by <code>250 / fosc(kHz)</code>. For
+example, at <code>270 kHz</code>, a <code>40 us</code> command becomes
+approximately <code>37 us</code>.</p>
+<table>
+<colgroup>
+<col style="width: 21%" />
+<col style="width: 28%" />
+<col style="width: 28%" />
+<col style="width: 21%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Operation</th>
+<th style="text-align: right;">Code / selector</th>
+<th style="text-align: right;">Execution time at 250 kHz</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Clear display</td>
+<td style="text-align: right;"><code>$01</code></td>
+<td style="text-align: right;"><code>1.64 ms</code></td>
+<td>Clears DD RAM to spaces, homes cursor, resets display shift</td>
+</tr>
+<tr class="even">
+<td>Return home</td>
+<td style="text-align: right;"><code>$02</code> or <code>$03</code></td>
+<td style="text-align: right;"><code>1.64 ms</code></td>
+<td>Homes cursor/display shift without clearing DD RAM</td>
+</tr>
+<tr class="odd">
+<td>Entry mode set</td>
+<td style="text-align: right;"><code>$04-$07</code></td>
+<td style="text-align: right;"><code>40 us</code></td>
+<td>Sets increment/decrement and optional display shift</td>
+</tr>
+<tr class="even">
+<td>Display ON/OFF control</td>
+<td style="text-align: right;"><code>$08-$0F</code></td>
+<td style="text-align: right;"><code>40 us</code></td>
+<td>Controls display, cursor, blink</td>
+</tr>
+<tr class="odd">
+<td>Cursor/display shift</td>
+<td style="text-align: right;"><code>$10-$1F</code></td>
+<td style="text-align: right;"><code>40 us</code></td>
+<td>Moves cursor or shifts visible display</td>
+</tr>
+<tr class="even">
+<td>Function set</td>
+<td style="text-align: right;"><code>$20-$3F</code></td>
+<td style="text-align: right;"><code>40 us</code></td>
+<td>Selects 4/8-bit interface, line count, font</td>
+</tr>
+<tr class="odd">
+<td>Set CG RAM address</td>
+<td style="text-align: right;"><code>$40-$7F</code></td>
+<td style="text-align: right;"><code>40 us</code></td>
+<td>Selects CG RAM address</td>
+</tr>
+<tr class="even">
+<td>Set DD RAM address</td>
+<td style="text-align: right;"><code>$80-$FF</code></td>
+<td style="text-align: right;"><code>40 us</code></td>
+<td>Selects DD RAM address</td>
+</tr>
+<tr class="odd">
+<td>Read busy flag and address</td>
+<td style="text-align: right;"><code>RS=0</code>,
+<code>R/W=1</code></td>
+<td style="text-align: right;">bus read; BF reports internal state</td>
+<td>Reads BF and address counter</td>
+</tr>
+<tr class="even">
+<td>Write data to CG/DD RAM</td>
+<td style="text-align: right;"><code>RS=1</code>,
+<code>R/W=0</code></td>
+<td style="text-align: right;"><code>40 us</code></td>
+<td>Writes data to selected RAM</td>
+</tr>
+<tr class="odd">
+<td>Read data from CG/DD RAM</td>
+<td style="text-align: right;"><code>RS=1</code>,
+<code>R/W=1</code></td>
+<td style="text-align: right;"><code>40 us</code> internal timing; plus
+bus read timing</td>
+<td>Reads data from selected RAM</td>
+</tr>
+</tbody>
+</table>
+<h3 id="practical-6502via-rule">Practical 6502/VIA Rule</h3>
+<p>A 6502 <code>STA</code> to the 6522 is already much slower than the
+nanosecond bus timings on this table, especially at 1 MHz. The dangerous
+part is not the <code>E</code> pulse; it is sending the next LCD
+instruction before the previous one has finished. Use busy-flag polling
+after initialisation, or use conservative delays.</p>
+<h2 id="via-setup">VIA Setup</h2>
+<p>The control lines PB0-PB2 are outputs. Other PB lines are left as
+inputs by these examples.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">via_init:</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Configure the three LCD control pins as outputs.</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        <span class="co">; PB0 = RS, PB1 = R/W, PB2 = E.</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        <span class="co">; The upper five bits of port B are left alone as inputs.</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#</span>LCD_CTL</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        sta DDRB</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Put the LCD bus into a safe idle state:</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="co">; RS=0 selects the instruction/status register,</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">; RW=0 selects write mode,</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        <span class="co">; E=0 means no transfer is currently taking place.</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">00</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        sta PORTB</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        rts</span></code></pre></div>
+<hr />
+<h2 id="bit-interface-code">8-bit Interface Code</h2>
+<p>Use this section when LCD D0-D7 are wired to PA0-PA7.</p>
+<h3 id="low-level-8-bit-write">Low-level 8-bit Write</h3>
+<p>Entry:</p>
+<ul>
+<li><code>A</code> = byte to write</li>
+<li><code>X</code> = control bits: <code>$00</code> for command,
+<code>LCD_RS</code> for data</li>
+</ul>
+<div class="sourceCode" id="cb4"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd8_write_raw:</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Entry:</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>        <span class="co">;   A = byte to send to the LCD</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        <span class="co">;   X = control setting: 0 for command, LCD_RS for data</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="co">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        <span class="co">; The LCD samples the data bus when E is pulsed.</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        <span class="co">; This routine always writes, so RW is forced low.</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        pha                   <span class="co">; Save the byte while A is used for setup.</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span>ff              <span class="co">; In 8-bit mode all PA pins are data outputs.</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        sta DDRA</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        pla                   <span class="co">; Restore the byte to send.</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        sta PORTA             <span class="co">; Put D0..D7 on PA0..PA7 before E rises.</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        txa                   <span class="co">; Copy caller&#39;s RS setting into A.</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">and</span> <span class="op">#</span>LCD_RS           <span class="co">; Keep only RS; force RW=0 and E=0.</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        sta PORTB             <span class="co">; Present RS/RW setup before the E pulse.</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        ora <span class="op">#</span>LCD_E            <span class="co">; Set E high: LCD sees a transfer in progress.</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>        sta PORTB</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">and</span> <span class="op">#%</span><span class="dv">11111011</span>        <span class="co">; Clear E again.</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>        sta PORTB             <span class="co">; Falling E completes/latches the byte.</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>        rts</span></code></pre></div>
+<h3 id="bit-command-and-data-helpers">8-bit Command and Data
+Helpers</h3>
+<div class="sourceCode" id="cb5"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd8_cmd:</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#$</span><span class="bn">00</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>        jsr lcd8_write_raw</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>        jsr lcd_wait_short</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>        rts</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd8_data:</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#</span>LCD_RS</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>        jsr lcd8_write_raw</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>        jsr lcd_wait_short</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        rts</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd8_cmd_slow:</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#$</span><span class="bn">00</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>        jsr lcd8_write_raw</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>        jsr lcd_wait_long</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>        rts</span></code></pre></div>
+<h3 id="bit-busy-flag-read">8-bit Busy Flag Read</h3>
+<p>Returns:</p>
+<ul>
+<li><code>A</code> = busy flag plus address counter</li>
+<li>bit 7 = busy flag</li>
+<li>N flag follows bit 7, so <code>BMI</code> means busy</li>
+</ul>
+<div class="sourceCode" id="cb6"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd8_read_bf:</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">00</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>        sta DDRA              <span class="co">; PA0..PA7 inputs</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#</span>LCD_RW           <span class="co">; RS=0,RW=1,E=0</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>        sta PORTB</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>        ora <span class="op">#</span>LCD_E</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>        sta PORTB             <span class="co">; E=1</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>        lda PORTA             <span class="co">; DB7=BF, DB0-DB6=AC</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>        pha</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#</span>LCD_RW</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>        sta PORTB             <span class="co">; E=0</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span>ff</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>        sta DDRA              <span class="co">; restore data bus as output</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">00</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>        sta PORTB             <span class="co">; RW=0,E=0</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>        pla</span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>        rts</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd8_wait_bf:</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>        jsr lcd8_read_bf</span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>        bmi lcd8_wait_bf</span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>        rts</span></code></pre></div>
+<hr />
+<h2 id="bit-interface-code-1">4-bit Interface Code</h2>
+<p>Use this section when LCD D4-D7 are wired to PA4-PA7.</p>
+<p>The nibble is placed on the upper half of port A:</p>
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: right;">Nibble</th>
+<th style="text-align: right;">Value written to PORTA</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: right;"><code>$3</code></td>
+<td style="text-align: right;"><code>$30</code></td>
+</tr>
+<tr class="even">
+<td style="text-align: right;"><code>$2</code></td>
+<td style="text-align: right;"><code>$20</code></td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">High nibble of <code>$41</code></td>
+<td style="text-align: right;"><code>$40</code></td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">Low nibble of <code>$41</code></td>
+<td style="text-align: right;"><code>$10</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="low-level-4-bit-nibble-write">Low-level 4-bit Nibble Write</h3>
+<p>Entry:</p>
+<ul>
+<li><code>A</code> = nibble already aligned to PA4-PA7</li>
+<li><code>X</code> = control bits: <code>$00</code> for command,
+<code>LCD_RS</code> for data</li>
+</ul>
+<div class="sourceCode" id="cb7"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd4_write_nibble:</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>        pha</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span>f0</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>        sta DDRA              <span class="co">; PA4..PA7 outputs</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>        pla</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">and</span> <span class="op">#$</span>f0</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>        sta PORTA</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>        txa</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">and</span> <span class="op">#</span>LCD_RS           <span class="co">; keep RS only, force RW=0,E=0</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>        sta PORTB</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>        ora <span class="op">#</span>LCD_E</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>        sta PORTB             <span class="co">; E=1</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">and</span> <span class="op">#%</span><span class="dv">11111011</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>        sta PORTB             <span class="co">; E=0</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>        rts</span></code></pre></div>
+<h3 id="write-a-full-byte-in-4-bit-mode">Write a Full Byte in 4-bit
+Mode</h3>
+<p>Entry:</p>
+<ul>
+<li><code>A</code> = byte</li>
+<li><code>X</code> = control bits</li>
+</ul>
+<div class="sourceCode" id="cb8"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd4_write_raw:</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Entry:</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>        <span class="co">;   A = full 8-bit command or data byte</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>        <span class="co">;   X = control setting: 0 for command, LCD_RS for data</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>        <span class="co">;</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>        <span class="co">; In 4-bit mode the LCD requires TWO transfers per byte:</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>        <span class="co">;   1. high nibble, bits 7..4</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>        <span class="co">;   2. low nibble, bits 3..0, shifted up onto PA7..PA4</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>        pha                   <span class="co">; Keep a copy for the second nibble.</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">and</span> <span class="op">#$</span>f0              <span class="co">; Mask off the low nibble.</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>                              <span class="co">; The high nibble is already on PA7..PA4.</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_write_nibble <span class="co">; Send bits 7..4 first.</span></span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>        pla                   <span class="co">; Get the original byte back.</span></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>        asl a                 <span class="co">; Move bit 3 into bit 7.</span></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>        asl a                 <span class="co">; Move bit 2 into bit 6.</span></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>        asl a                 <span class="co">; Move bit 1 into bit 5.</span></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>        asl a                 <span class="co">; Move bit 0 into bit 4.</span></span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_write_nibble <span class="co">; Send original bits 3..0 second.</span></span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>        rts</span></code></pre></div>
+<h3 id="bit-command-and-data-helpers-1">4-bit Command and Data
+Helpers</h3>
+<div class="sourceCode" id="cb9"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd4_cmd:</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#$</span><span class="bn">00</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_write_raw</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>        jsr lcd_wait_short</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>        rts</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd4_data:</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#</span>LCD_RS</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_write_raw</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>        jsr lcd_wait_short</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>        rts</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd4_cmd_slow:</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#$</span><span class="bn">00</span></span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_write_raw</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>        jsr lcd_wait_long</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>        rts</span></code></pre></div>
+<h3 id="bit-busy-flag-read-1">4-bit Busy Flag Read</h3>
+<p>A 4-bit read still needs two E strobes. The first nibble contains BF
+and the upper address bits. The second nibble contains the lower address
+bits.</p>
+<p>Returns:</p>
+<ul>
+<li><code>A</code> = reconstructed busy flag plus address counter</li>
+<li>bit 7 = busy flag</li>
+<li>N flag follows bit 7, so <code>BMI</code> means busy</li>
+</ul>
+<div class="sourceCode" id="cb10"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd4_read_nibble:</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">00</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>        sta DDRA              <span class="co">; PA inputs</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>        txa                   <span class="co">; caller supplies RS/RW, E clear</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>        sta PORTB</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>        ora <span class="op">#</span>LCD_E</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>        sta PORTB             <span class="co">; E=1</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>        lda PORTA</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">and</span> <span class="op">#$</span>f0              <span class="co">; read PA4..PA7</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>        pha</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>        txa</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>        sta PORTB             <span class="co">; E=0</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>        pla</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>        rts</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd4_read_bf:</span></span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#</span>LCD_RW           <span class="co">; RS=0,RW=1,E=0</span></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_read_nibble</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>        sta tmp               <span class="co">; BF + AC6..AC4, already in bits 7..4</span></span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_read_nibble  <span class="co">; AC3..AC0 in bits 7..4</span></span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>        lsr a</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>        lsr a</span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>        lsr a</span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>        lsr a                 <span class="co">; move to bits 3..0</span></span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a>        ora tmp</span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>        pha</span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span>f0</span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>        sta DDRA              <span class="co">; restore PA4..PA7 outputs</span></span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">00</span></span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a>        sta PORTB             <span class="co">; RW=0,E=0</span></span>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-36"><a href="#cb10-36" aria-hidden="true" tabindex="-1"></a>        pla</span>
+<span id="cb10-37"><a href="#cb10-37" aria-hidden="true" tabindex="-1"></a>        rts</span>
+<span id="cb10-38"><a href="#cb10-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-39"><a href="#cb10-39" aria-hidden="true" tabindex="-1"></a><span class="fu">tmp:</span>    .<span class="dt">byte</span> <span class="dv">0</span></span>
+<span id="cb10-40"><a href="#cb10-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-41"><a href="#cb10-41" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd4_wait_bf:</span></span>
+<span id="cb10-42"><a href="#cb10-42" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_read_bf</span>
+<span id="cb10-43"><a href="#cb10-43" aria-hidden="true" tabindex="-1"></a>        bmi lcd4_wait_bf</span>
+<span id="cb10-44"><a href="#cb10-44" aria-hidden="true" tabindex="-1"></a>        rts</span></code></pre></div>
+<hr />
+<h2 id="initialising-the-lcd">Initialising the LCD</h2>
+<p>Software initialisation is recommended even if the LCD has an
+internal reset circuit. The early wake-up writes must use fixed delays
+because the busy flag is not reliable yet.</p>
+<h3 id="bit-initialisation">8-bit Initialisation</h3>
+<div class="sourceCode" id="cb11"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd8_init:</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>        jsr via_init</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span>ff</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>        sta DDRA</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>        jsr lcd_wait_power     <span class="co">; wait more than 15 ms after power is valid</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">30</span>              <span class="co">; wake-up: function set, 8-bit</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#$</span><span class="bn">00</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>        jsr lcd8_write_raw</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>        jsr lcd_wait_5ms</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">30</span>              <span class="co">; repeat</span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#$</span><span class="bn">00</span></span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>        jsr lcd8_write_raw</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>        jsr lcd_wait_200us</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">30</span>              <span class="co">; repeat; BF usable after this completes</span></span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#$</span><span class="bn">00</span></span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>        jsr lcd8_write_raw</span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>        jsr lcd_wait_200us</span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">38</span>              <span class="co">; 8-bit, 2-line, 5x8 font</span></span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a>        jsr lcd8_cmd</span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">08</span>              <span class="co">; display off</span></span>
+<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a>        jsr lcd8_cmd</span>
+<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">01</span>              <span class="co">; clear display</span></span>
+<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a>        jsr lcd8_cmd_slow</span>
+<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">06</span>              <span class="co">; entry mode: increment, no shift</span></span>
+<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a>        jsr lcd8_cmd</span>
+<span id="cb11-31"><a href="#cb11-31" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">0c</span>              <span class="co">; display on, cursor off, blink off</span></span>
+<span id="cb11-32"><a href="#cb11-32" aria-hidden="true" tabindex="-1"></a>        jsr lcd8_cmd</span>
+<span id="cb11-33"><a href="#cb11-33" aria-hidden="true" tabindex="-1"></a>        rts</span></code></pre></div>
+<h3 id="bit-initialisation-1">4-bit Initialisation</h3>
+<p>Before the LCD is switched into 4-bit mode, it is still receiving
+only the high half of what it thinks is an 8-bit bus. The first
+transfers are therefore single nibbles, not full 4-bit bytes.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd4_init:</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>        jsr via_init</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span>f0</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>        sta DDRA</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>        jsr lcd_wait_power     <span class="co">; wait more than 15 ms after power is valid</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">30</span>              <span class="co">; wake-up as 8-bit function set nibble</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#$</span><span class="bn">00</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_write_nibble</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>        jsr lcd_wait_5ms</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">30</span>              <span class="co">; repeat</span></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#$</span><span class="bn">00</span></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_write_nibble</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>        jsr lcd_wait_200us</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">30</span>              <span class="co">; repeat</span></span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#$</span><span class="bn">00</span></span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_write_nibble</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>        jsr lcd_wait_200us</span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">20</span>              <span class="co">; select 4-bit interface</span></span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#$</span><span class="bn">00</span></span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_write_nibble</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>        jsr lcd_wait_200us</span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">28</span>              <span class="co">; 4-bit, 2-line, 5x8 font</span></span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_cmd</span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">08</span>              <span class="co">; display off</span></span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_cmd</span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">01</span>              <span class="co">; clear display</span></span>
+<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_cmd_slow</span>
+<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">06</span>              <span class="co">; entry mode: increment, no shift</span></span>
+<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_cmd</span>
+<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">0c</span>              <span class="co">; display on, cursor off, blink off</span></span>
+<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_cmd</span>
+<span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a>        rts</span></code></pre></div>
+<h3 id="initialisation-summary">Initialisation Summary</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Mode</th>
+<th style="text-align: right;">Transfer</th>
+<th>Meaning</th>
+<th style="text-align: right;">Wait</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>8-bit</td>
+<td style="text-align: right;"><code>$30</code></td>
+<td>Function set wake-up</td>
+<td style="text-align: right;">&gt;4.1 ms</td>
+</tr>
+<tr class="even">
+<td>8-bit</td>
+<td style="text-align: right;"><code>$30</code></td>
+<td>Function set wake-up</td>
+<td style="text-align: right;">&gt;100 µs</td>
+</tr>
+<tr class="odd">
+<td>8-bit</td>
+<td style="text-align: right;"><code>$30</code></td>
+<td>Function set wake-up</td>
+<td style="text-align: right;">&gt;100 µs</td>
+</tr>
+<tr class="even">
+<td>8-bit</td>
+<td style="text-align: right;"><code>$38</code></td>
+<td>8-bit, 2-line, 5x8</td>
+<td style="text-align: right;">40 µs or BF</td>
+</tr>
+<tr class="odd">
+<td>4-bit</td>
+<td style="text-align: right;">nibble <code>$3</code></td>
+<td>Function set wake-up</td>
+<td style="text-align: right;">&gt;4.1 ms</td>
+</tr>
+<tr class="even">
+<td>4-bit</td>
+<td style="text-align: right;">nibble <code>$3</code></td>
+<td>Function set wake-up</td>
+<td style="text-align: right;">&gt;100 µs</td>
+</tr>
+<tr class="odd">
+<td>4-bit</td>
+<td style="text-align: right;">nibble <code>$3</code></td>
+<td>Function set wake-up</td>
+<td style="text-align: right;">&gt;100 µs</td>
+</tr>
+<tr class="even">
+<td>4-bit</td>
+<td style="text-align: right;">nibble <code>$2</code></td>
+<td>Select 4-bit interface</td>
+<td style="text-align: right;">&gt;100 µs</td>
+</tr>
+<tr class="odd">
+<td>4-bit</td>
+<td style="text-align: right;"><code>$28</code></td>
+<td>4-bit, 2-line, 5x8</td>
+<td style="text-align: right;">40 µs or BF</td>
+</tr>
+</tbody>
+</table>
+<p>Then for either mode:</p>
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: right;">Command</th>
+<th>Meaning</th>
+<th style="text-align: right;">Wait</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: right;"><code>$08</code></td>
+<td>Display off</td>
+<td style="text-align: right;">40 µs or BF</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;"><code>$01</code></td>
+<td>Clear display</td>
+<td style="text-align: right;">1.64 ms or BF</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;"><code>$06</code></td>
+<td>Entry mode: increment, no shift</td>
+<td style="text-align: right;">40 µs or BF</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;"><code>$0C</code></td>
+<td>Display on, cursor off, blink off</td>
+<td style="text-align: right;">40 µs or BF</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="sending-commands-and-writing-text">Sending Commands and Writing
+Text</h2>
+<h3 id="send-a-command">Send a Command</h3>
+<p>Commands use <code>RS=0</code>, <code>R/W=0</code>.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">80</span>              <span class="co">; set DD RAM address 0</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_cmd          <span class="co">; or lcd8_cmd</span></span></code></pre></div>
+<h3 id="write-a-character">Write a Character</h3>
+<p>Display data uses <code>RS=1</code>, <code>R/W=0</code>.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#</span><span class="st">&#39;A&#39;</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_data         <span class="co">; or lcd8_data</span></span></code></pre></div>
+<h3 id="set-cursor-position">Set Cursor Position</h3>
+<p>For a normal 16x2 display:</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd_line1:</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">80</span>              <span class="co">; DD RAM $00</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_cmd</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>        rts</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd_line2:</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span>c0              <span class="co">; DD RAM $40</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_cmd</span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>        rts</span></code></pre></div>
+<h3 id="write-a-zero-terminated-string">Write a Zero-terminated
+String</h3>
+<p>This example uses a zero-page pointer named <code>strptr</code>.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd4_puts:</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Print a zero-terminated string using the 4-bit LCD routines.</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>        <span class="co">;</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>        <span class="co">; strptr points at the first character.</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Each character is written to DD RAM.</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>        <span class="co">; The LCD entry mode then advances the cursor automatically.</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>        ldy <span class="op">#</span><span class="dv">0</span>                <span class="co">; Y is the index into the string.</span></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a><span class="fu">.next:</span>  lda <span class="op">(</span>strptr<span class="op">),</span>y        <span class="co">; Load one character from the string.</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>        beq <span class="op">.</span>done             <span class="co">; A zero byte marks the end of the string.</span></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_data         <span class="co">; Send this character to the LCD as data.</span></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>        iny                   <span class="co">; Move to the next character.</span></span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>        bne <span class="op">.</span>next             <span class="co">; Continue until zero terminator or Y wraps.</span></span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a><span class="fu">.done:</span>  rts</span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a><span class="fu">strptr:</span> .<span class="dt">word</span> hello           <span class="co">; Pointer used by lcd4_puts.</span></span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a><span class="fu">hello:</span>  .<span class="dt">byte</span> <span class="st">&quot;HELLO, 6502!&quot;</span><span class="op">,</span><span class="dv">0</span> <span class="co">; Text followed by required terminator.</span></span></code></pre></div>
+<hr />
+<h2 id="reading-the-buffer">Reading the Buffer</h2>
+<p>The LCD can read back both DD RAM and CG RAM. This is useful for
+testing the simulator because the display contents can be verified
+through the same bus the 6502 uses to write them.</p>
+<h3 id="busy-flag-and-address-counter">Busy Flag and Address
+Counter</h3>
+<p>Read with <code>RS=0</code>, <code>R/W=1</code>.</p>
+<pre class="text"><code>bit 7    = busy flag
+bits 6-0 = address counter</code></pre>
+<p>If BF is 1, the LCD is still executing the previous command and must
+not accept another command or data write.</p>
+<h3 id="reading-dd-ram-or-cg-ram-data">Reading DD RAM or CG RAM
+Data</h3>
+<p>To read display data:</p>
+<ol type="1">
+<li>send <strong>Set DD RAM Address</strong>:
+<code>$80 | address</code></li>
+<li>perform a data read with <code>RS=1</code>, <code>R/W=1</code></li>
+<li>discard the first read after setting the address on controllers that
+use the documented data-register preload behaviour</li>
+<li>read again to get the byte from the requested address</li>
+</ol>
+<h3 id="bit-data-read-helper">8-bit Data Read Helper</h3>
+<div class="sourceCode" id="cb18"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd8_read_data:</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">00</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>        sta DDRA              <span class="co">; PA inputs</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#(</span>LCD_RS <span class="op">|</span> LCD_RW<span class="op">)</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>        sta PORTB</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>        ora <span class="op">#</span>LCD_E</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>        sta PORTB</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>        lda PORTA</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>        pha</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#(</span>LCD_RS <span class="op">|</span> LCD_RW<span class="op">)</span></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>        sta PORTB             <span class="co">; E=0</span></span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span>ff</span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>        sta DDRA              <span class="co">; restore output bus</span></span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">00</span></span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a>        sta PORTB</span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a>        pla</span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a>        rts</span></code></pre></div>
+<h3 id="bit-data-read-helper-1">4-bit Data Read Helper</h3>
+<div class="sourceCode" id="cb19"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd4_read_data:</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#(</span>LCD_RS <span class="op">|</span> LCD_RW<span class="op">)</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_read_nibble</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>        sta tmp</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_read_nibble</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>        lsr a</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>        lsr a</span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>        lsr a</span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>        lsr a</span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>        ora tmp</span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>        pha</span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span>f0</span>
+<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a>        sta DDRA</span>
+<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">00</span></span>
+<span id="cb19-17"><a href="#cb19-17" aria-hidden="true" tabindex="-1"></a>        sta PORTB</span>
+<span id="cb19-18"><a href="#cb19-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-19"><a href="#cb19-19" aria-hidden="true" tabindex="-1"></a>        pla</span>
+<span id="cb19-20"><a href="#cb19-20" aria-hidden="true" tabindex="-1"></a>        rts</span></code></pre></div>
+<hr />
+<h2 id="dd-ram-addressing">DD RAM Addressing</h2>
+<p>DD RAM stores up to 80 character codes. The visible display is only a
+window onto that memory.</p>
+<h3 id="common-16x2-and-20x2-layout">Common 16x2 and 20x2 Layout</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Line</th>
+<th style="text-align: right;">First visible address</th>
+<th style="text-align: right;">Command byte</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td style="text-align: right;"><code>$00</code></td>
+<td style="text-align: right;"><code>$80</code></td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td style="text-align: right;"><code>$40</code></td>
+<td style="text-align: right;"><code>$C0</code></td>
+</tr>
+</tbody>
+</table>
+<p>For 16x2, visible line 1 is usually <code>$00-$0F</code>; visible
+line 2 is usually <code>$40-$4F</code>.</p>
+<h3 id="common-20x4-layout">Common 20x4 Layout</h3>
+<p>A 20x4 display is normally organised like a 40x2 internal
+display:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Line</th>
+<th style="text-align: right;">First visible address</th>
+<th style="text-align: right;">Command byte</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td style="text-align: right;"><code>$00</code></td>
+<td style="text-align: right;"><code>$80</code></td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td style="text-align: right;"><code>$40</code></td>
+<td style="text-align: right;"><code>$C0</code></td>
+</tr>
+<tr class="odd">
+<td>3</td>
+<td style="text-align: right;"><code>$14</code></td>
+<td style="text-align: right;"><code>$94</code></td>
+</tr>
+<tr class="even">
+<td>4</td>
+<td style="text-align: right;"><code>$54</code></td>
+<td style="text-align: right;"><code>$D4</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="x1-quirk">16x1 Quirk</h3>
+<p>Some 16x1 modules are internally treated like an 8x2 display:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Visible columns</th>
+<th>DD RAM range</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1-8</td>
+<td><code>$00-$07</code></td>
+</tr>
+<tr class="even">
+<td>9-16</td>
+<td><code>$40-$47</code></td>
+</tr>
+</tbody>
+</table>
+<p>This is one of the most common surprises when writing simulator
+tests.</p>
+<hr />
+<h2 id="character-set-and-cg-ram">Character Set and CG RAM</h2>
+<p>The built-in character ROM is broadly ASCII-like for the printable
+range, but it is not a modern Unicode font. Character ROMs vary between
+modules.</p>
+<table>
+<thead>
+<tr class="header">
+<th>Code range</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>$00-$07</code></td>
+<td>CG RAM custom characters in 5x8 mode</td>
+</tr>
+<tr class="even">
+<td><code>$08-$0F</code></td>
+<td>Usually mirrors <code>$00-$07</code> custom characters</td>
+</tr>
+<tr class="odd">
+<td><code>$20-$7E</code></td>
+<td>Printable ASCII-like characters</td>
+</tr>
+<tr class="even">
+<td><code>$80-$FF</code></td>
+<td>Symbols, Japanese kana, or module-specific glyphs</td>
+</tr>
+</tbody>
+</table>
+<p>The Optrex manual notes that some high-order character regions may be
+inadequate or variant on particular ROMs. For a simulator, it is best to
+define which ROM image or fallback glyph policy is being used.</p>
+<h3 id="cg-ram-custom-characters">CG RAM Custom Characters</h3>
+<p>CG RAM is 64 bytes. In 5x8 mode this gives eight user-defined
+characters. Each character uses eight rows. Only bits 0-4 are visible
+pixels; bits 5-7 are not shown.</p>
+<p>Character code <code>$00</code> displays CG RAM character 0,
+<code>$01</code> displays character 1, and so on up to
+<code>$07</code>.</p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make_char0:</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">40</span>              <span class="co">; CG RAM address 0</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_cmd</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>        ldy <span class="op">#</span><span class="dv">0</span></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a><span class="fu">.loop:</span>  lda glyph0<span class="op">,</span>y</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_data</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>        iny</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>        cpy <span class="op">#</span><span class="dv">8</span></span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>        bne <span class="op">.</span>loop</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">80</span>              <span class="co">; back to DD RAM address 0</span></span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_cmd</span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">00</span>              <span class="co">; display custom character 0</span></span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_data</span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a>        rts</span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a><span class="fu">glyph0:</span></span>
+<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a>        .<span class="dt">byte</span> <span class="op">%</span><span class="dv">00000</span></span>
+<span id="cb20-20"><a href="#cb20-20" aria-hidden="true" tabindex="-1"></a>        .<span class="dt">byte</span> <span class="op">%</span><span class="dv">00100</span></span>
+<span id="cb20-21"><a href="#cb20-21" aria-hidden="true" tabindex="-1"></a>        .<span class="dt">byte</span> <span class="op">%</span><span class="dv">01110</span></span>
+<span id="cb20-22"><a href="#cb20-22" aria-hidden="true" tabindex="-1"></a>        .<span class="dt">byte</span> <span class="op">%</span><span class="dv">11111</span></span>
+<span id="cb20-23"><a href="#cb20-23" aria-hidden="true" tabindex="-1"></a>        .<span class="dt">byte</span> <span class="op">%</span><span class="dv">00100</span></span>
+<span id="cb20-24"><a href="#cb20-24" aria-hidden="true" tabindex="-1"></a>        .<span class="dt">byte</span> <span class="op">%</span><span class="dv">00100</span></span>
+<span id="cb20-25"><a href="#cb20-25" aria-hidden="true" tabindex="-1"></a>        .<span class="dt">byte</span> <span class="op">%</span><span class="dv">00100</span></span>
+<span id="cb20-26"><a href="#cb20-26" aria-hidden="true" tabindex="-1"></a>        .<span class="dt">byte</span> <span class="op">%</span><span class="dv">00000</span></span></code></pre></div>
+<hr />
+<h2 id="command-list">Command List</h2>
+<table>
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Command</th>
+<th>Bits</th>
+<th style="text-align: right;">Hex</th>
+<th style="text-align: right;">Time</th>
+<th>Description</th>
+<th>Notes / quirks</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Clear display</td>
+<td><code>00000001</code></td>
+<td style="text-align: right;"><code>$01</code></td>
+<td style="text-align: right;">1.64 ms</td>
+<td>Clears DD RAM to spaces and homes cursor/display shift</td>
+<td>Slow; also returns display shift to original position</td>
+</tr>
+<tr class="even">
+<td>Return home</td>
+<td><code>0000001x</code></td>
+<td style="text-align: right;"><code>$02-$03</code></td>
+<td style="text-align: right;">1.64 ms</td>
+<td>Sets DD RAM address to 0 and homes shifted display</td>
+<td>Slow; DD RAM contents unchanged</td>
+</tr>
+<tr class="odd">
+<td>Entry mode set</td>
+<td><code>000001IS</code></td>
+<td style="text-align: right;"><code>$04-$07</code></td>
+<td style="text-align: right;">40 µs</td>
+<td>Sets increment/decrement and optional display shift after
+writes</td>
+<td><code>I=1</code> increments; <code>S=1</code> shifts display on
+writes</td>
+</tr>
+<tr class="even">
+<td>Display on/off</td>
+<td><code>00001DCB</code></td>
+<td style="text-align: right;"><code>$08-$0F</code></td>
+<td style="text-align: right;">40 µs</td>
+<td>Display, cursor, and blink control</td>
+<td>Display off does not erase DD RAM</td>
+</tr>
+<tr class="odd">
+<td>Cursor/display shift</td>
+<td><code>0001SCRLxx</code></td>
+<td style="text-align: right;"><code>$10-$1F</code></td>
+<td style="text-align: right;">40 µs</td>
+<td>Shifts cursor or display left/right</td>
+<td>Display shift does not change AC</td>
+</tr>
+<tr class="even">
+<td>Function set</td>
+<td><code>001DLNFxx</code></td>
+<td style="text-align: right;"><code>$20-$3F</code></td>
+<td style="text-align: right;">40 µs</td>
+<td>Selects 4/8 bit, line count, and font</td>
+<td>Use during initialisation</td>
+</tr>
+<tr class="odd">
+<td>Set CG RAM address</td>
+<td><code>01AAAAAA</code></td>
+<td style="text-align: right;"><code>$40-$7F</code></td>
+<td style="text-align: right;">40 µs</td>
+<td>Selects CG RAM address</td>
+<td>64 byte CG RAM</td>
+</tr>
+<tr class="even">
+<td>Set DD RAM address</td>
+<td><code>1AAAAAAA</code></td>
+<td style="text-align: right;"><code>$80-$FF</code></td>
+<td style="text-align: right;">40 µs</td>
+<td>Selects DD RAM address</td>
+<td>Layout depends on module geometry</td>
+</tr>
+<tr class="odd">
+<td>Read busy/address</td>
+<td><code>RS=0,RW=1</code></td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: right;">bus read</td>
+<td>Reads BF and AC</td>
+<td>In 4-bit mode read two nibbles</td>
+</tr>
+<tr class="even">
+<td>Write data</td>
+<td><code>RS=1,RW=0</code></td>
+<td style="text-align: right;"><code>$00-$FF</code></td>
+<td style="text-align: right;">40 µs</td>
+<td>Writes to selected DD RAM or CG RAM</td>
+<td>Address changes according to entry mode</td>
+</tr>
+<tr class="odd">
+<td>Read data</td>
+<td><code>RS=1,RW=1</code></td>
+<td style="text-align: right;"><code>$00-$FF</code></td>
+<td style="text-align: right;">40 µs internal</td>
+<td>Reads selected DD RAM or CG RAM</td>
+<td>First read after address set may be dummy</td>
+</tr>
+</tbody>
+</table>
+<h3 id="command-bit-meanings">Command Bit Meanings</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Bit</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>I</code></td>
+<td>1 = increment address counter, 0 = decrement</td>
+</tr>
+<tr class="even">
+<td><code>S</code></td>
+<td>1 = shift display after data write</td>
+</tr>
+<tr class="odd">
+<td><code>D</code></td>
+<td>1 = display on</td>
+</tr>
+<tr class="even">
+<td><code>C</code></td>
+<td>1 = cursor on</td>
+</tr>
+<tr class="odd">
+<td><code>B</code></td>
+<td>1 = blink on</td>
+</tr>
+<tr class="even">
+<td><code>S/C</code></td>
+<td>0 = cursor shift, 1 = display shift</td>
+</tr>
+<tr class="odd">
+<td><code>R/L</code></td>
+<td>0 = left, 1 = right</td>
+</tr>
+<tr class="even">
+<td><code>DL</code></td>
+<td>1 = 8-bit interface, 0 = 4-bit interface</td>
+</tr>
+<tr class="odd">
+<td><code>N</code></td>
+<td>1 = 2-line mode, 0 = 1-line mode</td>
+</tr>
+<tr class="even">
+<td><code>F</code></td>
+<td>1 = 5x10 font, 0 = 5x8 / 5x7 font</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="delay-routines">Delay Routines</h2>
+<p>These routines are deliberately conservative placeholders. Adjust
+them for the clock speed used by the emulator or target machine.</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd_wait_short:</span>                 <span class="co">; roughly 40 us or more at 1 MHz if padded</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>        ldy <span class="op">#</span><span class="dv">20</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="fu">.loop:</span>  dey</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>        bne <span class="op">.</span>loop</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>        rts</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd_wait_long:</span>                  <span class="co">; roughly 1.6 ms or more at 1 MHz if padded</span></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#</span><span class="dv">8</span></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a><span class="fu">.outer:</span> ldy <span class="op">#</span><span class="dv">255</span></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a><span class="fu">.inner:</span> dey</span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>        bne <span class="op">.</span>inner</span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>        dex</span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>        bne <span class="op">.</span>outer</span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>        rts</span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd_wait_200us:</span></span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>        ldy <span class="op">#</span><span class="dv">100</span></span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a><span class="fu">.loop:</span>  dey</span>
+<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a>        bne <span class="op">.</span>loop</span>
+<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a>        rts</span>
+<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-22"><a href="#cb21-22" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd_wait_5ms:</span></span>
+<span id="cb21-23"><a href="#cb21-23" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#</span><span class="dv">25</span></span>
+<span id="cb21-24"><a href="#cb21-24" aria-hidden="true" tabindex="-1"></a><span class="fu">.loop:</span>  jsr lcd_wait_200us</span>
+<span id="cb21-25"><a href="#cb21-25" aria-hidden="true" tabindex="-1"></a>        dex</span>
+<span id="cb21-26"><a href="#cb21-26" aria-hidden="true" tabindex="-1"></a>        bne <span class="op">.</span>loop</span>
+<span id="cb21-27"><a href="#cb21-27" aria-hidden="true" tabindex="-1"></a>        rts</span>
+<span id="cb21-28"><a href="#cb21-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-29"><a href="#cb21-29" aria-hidden="true" tabindex="-1"></a><span class="fu">lcd_wait_power:</span></span>
+<span id="cb21-30"><a href="#cb21-30" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#</span><span class="dv">4</span></span>
+<span id="cb21-31"><a href="#cb21-31" aria-hidden="true" tabindex="-1"></a><span class="fu">.loop:</span>  jsr lcd_wait_5ms</span>
+<span id="cb21-32"><a href="#cb21-32" aria-hidden="true" tabindex="-1"></a>        dex</span>
+<span id="cb21-33"><a href="#cb21-33" aria-hidden="true" tabindex="-1"></a>        bne <span class="op">.</span>loop</span>
+<span id="cb21-34"><a href="#cb21-34" aria-hidden="true" tabindex="-1"></a>        rts</span></code></pre></div>
+<p>For simulator testing, delays are still useful because many
+real-world LCD examples do not wire R/W and therefore cannot poll the
+busy flag.</p>
+<hr />
+<h2 id="quirks-and-simulator-notes">Quirks and Simulator Notes</h2>
+<ul>
+<li>Software initialisation is recommended because the internal reset
+depends on the LCD power ramp.</li>
+<li>Busy flag reads are invalid during the early wake-up writes.</li>
+<li>In 4-bit mode, all full-byte writes and reads are high nibble first,
+low nibble second.</li>
+<li>During 4-bit initialisation, the <code>$3,$3,$3,$2</code> sequence
+is sent as single nibbles.</li>
+<li>The first DD RAM or CG RAM data read after setting an address may be
+a dummy read because the controller preloads the data register
+internally.</li>
+<li>Display off does not erase DD RAM.</li>
+<li>Clear display and return home are much slower than ordinary
+commands.</li>
+<li>16x1 and 20x4 modules often have non-linear DD RAM layouts.</li>
+<li>CG RAM rows use only five visible bits.</li>
+<li>In 4-bit hardware, DB0-DB3 should be tied low.</li>
+<li>The simulator should document whether unsupported character ROM
+codes appear as blanks, replacement glyphs, or exact ROM glyphs.</li>
+</ul>
+<hr />
+<h2 id="minimal-demonstration-program-4-bit-mode">Minimal Demonstration
+Program, 4-bit Mode</h2>
+<div class="sourceCode" id="cb22"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>        .<span class="bu">org</span> <span class="op">$</span><span class="bn">0800</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="fu">start:</span></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Bring the VIA and LCD into a known state.</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>        <span class="co">; lcd4_init performs the special 4-bit wake-up sequence</span></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>        <span class="co">; and then turns the display on.</span></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_init</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Put the cursor at DD RAM address $00.</span></span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Command $80 means: set DD RAM address to $00.</span></span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>        <span class="co">; On a normal 16x2 display this is line 1, column 1.</span></span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">80</span></span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_cmd</span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>        <span class="co">; X will count through the message bytes.</span></span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#</span><span class="dv">0</span></span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a><span class="fu">.msg:</span>   <span class="co">; Load the next character from the message table.</span></span>
+<span id="cb22-19"><a href="#cb22-19" aria-hidden="true" tabindex="-1"></a>        lda message<span class="op">,</span>x</span>
+<span id="cb22-20"><a href="#cb22-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-21"><a href="#cb22-21" aria-hidden="true" tabindex="-1"></a>        <span class="co">; The string is terminated by a zero byte.</span></span>
+<span id="cb22-22"><a href="#cb22-22" aria-hidden="true" tabindex="-1"></a>        <span class="co">; When A is zero, BEQ branches to the end.</span></span>
+<span id="cb22-23"><a href="#cb22-23" aria-hidden="true" tabindex="-1"></a>        beq <span class="op">.</span>done</span>
+<span id="cb22-24"><a href="#cb22-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-25"><a href="#cb22-25" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Send the character in A to the LCD data register.</span></span>
+<span id="cb22-26"><a href="#cb22-26" aria-hidden="true" tabindex="-1"></a>        <span class="co">; The LCD then stores it in DD RAM and moves the cursor.</span></span>
+<span id="cb22-27"><a href="#cb22-27" aria-hidden="true" tabindex="-1"></a>        jsr lcd4_data</span>
+<span id="cb22-28"><a href="#cb22-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-29"><a href="#cb22-29" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Advance to the next character and loop.</span></span>
+<span id="cb22-30"><a href="#cb22-30" aria-hidden="true" tabindex="-1"></a>        inx</span>
+<span id="cb22-31"><a href="#cb22-31" aria-hidden="true" tabindex="-1"></a>        bne <span class="op">.</span>msg</span>
+<span id="cb22-32"><a href="#cb22-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-33"><a href="#cb22-33" aria-hidden="true" tabindex="-1"></a><span class="fu">.done:</span>  <span class="co">; Stop here forever so the text remains on screen.</span></span>
+<span id="cb22-34"><a href="#cb22-34" aria-hidden="true" tabindex="-1"></a>        <span class="cf">jmp</span> <span class="op">.</span>done</span>
+<span id="cb22-35"><a href="#cb22-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-36"><a href="#cb22-36" aria-hidden="true" tabindex="-1"></a><span class="fu">message:</span></span>
+<span id="cb22-37"><a href="#cb22-37" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Text bytes to display, followed by a zero terminator.</span></span>
+<span id="cb22-38"><a href="#cb22-38" aria-hidden="true" tabindex="-1"></a>        .<span class="dt">byte</span> <span class="st">&quot;HD44780 READY&quot;</span><span class="op">,</span><span class="dv">0</span></span></code></pre></div>
+<hr />
+<h2 id="minimal-demonstration-program-8-bit-mode">Minimal Demonstration
+Program, 8-bit Mode</h2>
+<div class="sourceCode" id="cb23"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>        .<span class="bu">org</span> <span class="op">$</span><span class="bn">0800</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a><span class="fu">start:</span></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Initialise the VIA and the LCD for an 8-bit data bus.</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>        <span class="co">; lcd8_init uses PA0..PA7 for LCD D0..D7.</span></span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>        jsr lcd8_init</span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Command $80 sets the LCD address counter to DD RAM $00.</span></span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>        <span class="co">; This is the first visible character on line 1 for common modules.</span></span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>        lda <span class="op">#$</span><span class="bn">80</span></span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>        jsr lcd8_cmd</span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a>        <span class="co">; X indexes through the bytes in the message.</span></span>
+<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a>        ldx <span class="op">#</span><span class="dv">0</span></span>
+<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a><span class="fu">.msg:</span>   <span class="co">; Fetch the next ASCII character.</span></span>
+<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a>        lda message<span class="op">,</span>x</span>
+<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-19"><a href="#cb23-19" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Zero means end of string.</span></span>
+<span id="cb23-20"><a href="#cb23-20" aria-hidden="true" tabindex="-1"></a>        beq <span class="op">.</span>done</span>
+<span id="cb23-21"><a href="#cb23-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-22"><a href="#cb23-22" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Write A as display data.</span></span>
+<span id="cb23-23"><a href="#cb23-23" aria-hidden="true" tabindex="-1"></a>        <span class="co">; RS is set by lcd8_data, so this is a character write, not a command.</span></span>
+<span id="cb23-24"><a href="#cb23-24" aria-hidden="true" tabindex="-1"></a>        jsr lcd8_data</span>
+<span id="cb23-25"><a href="#cb23-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-26"><a href="#cb23-26" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Move to the next message byte.</span></span>
+<span id="cb23-27"><a href="#cb23-27" aria-hidden="true" tabindex="-1"></a>        inx</span>
+<span id="cb23-28"><a href="#cb23-28" aria-hidden="true" tabindex="-1"></a>        bne <span class="op">.</span>msg</span>
+<span id="cb23-29"><a href="#cb23-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-30"><a href="#cb23-30" aria-hidden="true" tabindex="-1"></a><span class="fu">.done:</span>  <span class="co">; Endless loop: useful in a simple emulator demo.</span></span>
+<span id="cb23-31"><a href="#cb23-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">jmp</span> <span class="op">.</span>done</span>
+<span id="cb23-32"><a href="#cb23-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-33"><a href="#cb23-33" aria-hidden="true" tabindex="-1"></a><span class="fu">message:</span></span>
+<span id="cb23-34"><a href="#cb23-34" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Text bytes to display, followed by a zero terminator.</span></span>
+<span id="cb23-35"><a href="#cb23-35" aria-hidden="true" tabindex="-1"></a>        .<span class="dt">byte</span> <span class="st">&quot;8-BIT LCD OK&quot;</span><span class="op">,</span><span class="dv">0</span></span></code></pre></div>
+</body>
+</html>

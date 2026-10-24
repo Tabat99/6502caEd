@@ -1,0 +1,43 @@
+6502caEd MIT licensing update
+
+Extract into the project root (beside the top-level CMakeLists.txt), allowing
+file replacement. These are complete files, based on the original source ZIP.
+Keep a backup of any independent source changes before replacing them.
+
+The update includes the previously supplied Windows mkdir and icon fixes.
+No .patch application is required. Source timestamps in this ZIP are set to
+1 January 2026 to avoid future-dated inputs causing Ninja regeneration loops.
+
+Rebuild on Windows:
+  .\build_Windows.ps1
+  Select option 5 and install the new installer with the application closed.
+
+Rebuild on Linux using your usual CMake or build_Installers.sh workflow.
+
+Expected behaviour:
+- GTK Help > About shows Copyright © 2026 MJD.
+- Licence opens a scrollable MIT licence with OK; Escape also closes it.
+- Third-party notices opens the summary and, on Windows, packaged licence files.
+- CLI, TUI and GTK no longer require licence acceptance at startup.
+- CLI --license (or --licence) prints the full MIT text without prompting.
+- Existing licence acceptance marker files are harmless and are no longer read.
+
+The application's font choice remains the system font.
+
+Validation performed:
+- CLI compiled with GCC on Linux.
+- --version, --license and --licence work with closed stdin and a fresh HOME.
+- CLI licence output matches LICENSE exactly.
+- Small 6502 assembly example produces the expected five bytes.
+- Linux installer script passes bash syntax checking.
+
+GTK/TUI compilation, visual dialog checks and the Windows installer build were
+not available in this environment and still need to be checked on your machines.
+
+Distribution note:
+The Windows bundler copies MSYS2 UCRT64 licence files and records package versions.
+These notices do not by themselves fulfil all source-distribution requirements
+for bundled dependencies. Review the exact shipped components and arrange their
+corresponding source as required before publishing installers. See
+THIRD_PARTY_NOTICES.txt. The current copy-all-DLLs bundler can include unused
+packages; it is not a complete dependency or licence audit.

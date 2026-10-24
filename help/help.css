@@ -1,0 +1,255 @@
+/* 6502caEd Help Stylesheet
+   Used by:
+     - VSCodium Markdown preview (via .vscode/settings.json)
+     - pandoc HTML output for the GTK help viewer
+*/
+
+/* ── Page ───────────────────────────────────────────────────────────────── */
+
+body {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    font-family: 'Segoe UI', Ubuntu, sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 2em 2.5em;
+}
+
+/* ── Headings ───────────────────────────────────────────────────────────── */
+
+h1 {
+    color: #4fc3f7;
+    font-size: 2em;
+    border-bottom: 2px solid #4fc3f7;
+    padding-bottom: 0.3em;
+    margin-top: 0.5em;
+}
+
+h2 {
+    color: #fbc377;
+    font-size: 1.5em;
+    border-bottom: 1px solid #3a3a3a;
+    padding-bottom: 0.2em;
+    margin-top: 2em;
+}
+
+h3 {
+    color: #a5d6a7;
+    font-size: 1.15em;
+    margin-top: 1.5em;
+}
+
+h4 {
+    color: #ffb74d;
+    font-size: 1em;
+    margin-top: 1.2em;
+}
+
+/* ── Links ──────────────────────────────────────────────────────────────── */
+
+a {
+    color: #4fc3f7;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+    color: #81d4fa;
+}
+
+/* ── Inline code ────────────────────────────────────────────────────────── */
+
+code {
+    background-color: #252526;
+    color: #ffb74d;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.9em;
+    padding: 0.1em 0.45em;
+    border-radius: 3px;
+    border: 1px solid #333;
+}
+
+/* ── Code blocks ────────────────────────────────────────────────────────── */
+
+pre {
+    background-color: #252526;
+    border-left: 3px solid #4fc3f7;
+    border-radius: 4px;
+    padding: 1em 1.2em;
+    overflow-x: auto;
+    margin: 1em 0;
+}
+
+pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #d4d4d4;
+    font-size: 0.92em;
+}
+
+/* ── Syntax token colours ───────────────────────────────────────────────── */
+
+/* Directives / preprocessor keywords (.if .ifdef .def .cpu etc.)
+   Override pandoc's default #bc7a00 to match the editor's directive colour. */
+code span.pp {
+    color: #b48ead;
+    font-style: normal;
+    font-weight: normal;
+}
+
+/* Instructions (fasm "built-in" class = LDA, STA, NOP, CLC etc.) */
+code span.bu {
+    color: #4fc3f7;
+}
+
+/* Comments — green, italic */
+code span.co {
+    color: #6a9955;
+    font-style: italic;
+}
+
+/* Numeric literals */
+code span.bn,
+code span.dv {
+    color: #ffb74d;
+}
+
+/* String literals */
+code span.st {
+    color: #ce9178;
+}
+
+/* Operators and punctuation — keep neutral, not bright */
+code span.op {
+    color: #d4d4d4;
+}
+
+/* Labels (fasm "function" class) */
+code span.fu {
+    color: #dcdcaa;
+}
+
+/* Identifiers / variable names */
+code span.va {
+    color: #9cdcfe;
+}
+
+/* ── Pandoc misclassification fixes ─────────────────────────────────────── */
+
+/* span.er (error token): fasm highlighter incorrectly flags parts of tokens
+   like the 'c' in '65c02' or the 'l' in '@loop' as error tokens.
+   Reset to plain text colour so they don't show red. */
+code span.er {
+    color: #d4d4d4;
+    font-weight: normal;
+    text-decoration: none;
+    border: none;
+}
+
+/* span.al (alert token): fasm highlighter marks words like WARNING in
+   comments as alerts, turning them red/bold. Reset to comment colour. */
+code span.al {
+    color: #6a9955;
+    font-weight: normal;
+}
+
+/* ── Tables ─────────────────────────────────────────────────────────────── */
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+    font-size: 0.95em;
+}
+
+thead tr {
+    background-color: #252526;
+}
+
+th {
+    color: #4fc3f7;
+    font-weight: 600;
+    padding: 0.55em 1em;
+    text-align: left;
+    border-bottom: 2px solid #4fc3f7;
+}
+
+td {
+    padding: 0.45em 1em;
+    border-bottom: 1px solid #2e2e2e;
+    vertical-align: top;
+}
+
+/* First column of shortcut tables — make the key stand out */
+td:first-child {
+    color: #a5d6a7;
+    white-space: nowrap;
+}
+
+tr:hover td {
+    background-color: #232323;
+}
+
+/* ── Horizontal rules ───────────────────────────────────────────────────── */
+
+hr {
+    border: none;
+    border-top: 1px solid #3a3a3a;
+    margin: 2em 0;
+}
+
+/* ── Lists ──────────────────────────────────────────────────────────────── */
+
+ul,
+ol {
+    padding-left: 1.8em;
+}
+
+li {
+    margin: 0.3em 0;
+}
+
+/* Contents list — make it look like a nav block */
+ul:first-of-type {
+    background-color: #252526;
+    border-left: 3px solid #ce93d8;
+    border-radius: 4px;
+    padding: 0.8em 0.8em 0.8em 2.2em;
+    margin: 1em 0;
+}
+
+/* ── Emphasis ───────────────────────────────────────────────────────────── */
+
+strong {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+em {
+    color: #b0bec5;
+    font-style: italic;
+}
+
+/* ── Blockquote (used for notes/tips) ──────────────────────────────────── */
+
+blockquote {
+    border-left: 3px solid #ffb74d;
+    background-color: #252526;
+    margin: 1em 0;
+    padding: 0.6em 1em;
+    border-radius: 0 4px 4px 0;
+    color: #ffb74d;
+}
+
+/* ── Footer ─────────────────────────────────────────────────────────────── */
+
+body>p:last-child {
+    margin-top: 3em;
+    color: #555;
+    font-size: 0.85em;
+    border-top: 1px solid #2a2a2a;
+    padding-top: 1em;
+}

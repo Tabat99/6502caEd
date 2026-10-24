@@ -1,0 +1,2183 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang xml:lang>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>6502caEd Help</title>
+  <style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+  <style type="text/css">
+
+body {
+background-color: #1e1e1e;
+color: #d4d4d4;
+font-family: 'Segoe UI', Ubuntu, sans-serif;
+font-size: 15px;
+line-height: 1.7;
+max-width: 920px;
+margin: 0 auto;
+padding: 2em 2.5em;
+}
+
+h1 {
+color: #4fc3f7;
+font-size: 2em;
+border-bottom: 2px solid #4fc3f7;
+padding-bottom: 0.3em;
+margin-top: 0.5em;
+}
+h2 {
+color: #fbc377;
+font-size: 1.5em;
+border-bottom: 1px solid #3a3a3a;
+padding-bottom: 0.2em;
+margin-top: 2em;
+}
+h3 {
+color: #a5d6a7;
+font-size: 1.15em;
+margin-top: 1.5em;
+}
+h4 {
+color: #ffb74d;
+font-size: 1em;
+margin-top: 1.2em;
+}
+
+a {
+color: #4fc3f7;
+text-decoration: none;
+}
+a:hover {
+text-decoration: underline;
+color: #81d4fa;
+}
+
+code {
+background-color: #252526;
+color: #ffb74d;
+font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+font-size: 0.9em;
+padding: 0.1em 0.45em;
+border-radius: 3px;
+border: 1px solid #333;
+}
+
+pre {
+background-color: #252526;
+border-left: 3px solid #4fc3f7;
+border-radius: 4px;
+padding: 1em 1.2em;
+overflow-x: auto;
+margin: 1em 0;
+}
+pre code {
+background: none;
+border: none;
+padding: 0;
+color: #d4d4d4;
+font-size: 0.92em;
+}
+
+
+code span.pp {
+color: #b48ead;
+font-style: normal;
+font-weight: normal;
+}
+
+code span.bu {
+color: #4fc3f7;
+}
+
+code span.co {
+color: #6a9955;
+font-style: italic;
+}
+
+code span.bn,
+code span.dv {
+color: #ffb74d;
+}
+
+code span.st {
+color: #ce9178;
+}
+
+code span.op {
+color: #d4d4d4;
+}
+
+code span.fu {
+color: #dcdcaa;
+}
+
+code span.va {
+color: #9cdcfe;
+}
+
+
+code span.er {
+color: #d4d4d4;
+font-weight: normal;
+text-decoration: none;
+border: none;
+}
+
+code span.al {
+color: #6a9955;
+font-weight: normal;
+}
+
+table {
+border-collapse: collapse;
+width: 100%;
+margin: 1em 0;
+font-size: 0.95em;
+}
+thead tr {
+background-color: #252526;
+}
+th {
+color: #4fc3f7;
+font-weight: 600;
+padding: 0.55em 1em;
+text-align: left;
+border-bottom: 2px solid #4fc3f7;
+}
+td {
+padding: 0.45em 1em;
+border-bottom: 1px solid #2e2e2e;
+vertical-align: top;
+}
+
+td:first-child {
+color: #a5d6a7;
+white-space: nowrap;
+}
+tr:hover td {
+background-color: #232323;
+}
+
+hr {
+border: none;
+border-top: 1px solid #3a3a3a;
+margin: 2em 0;
+}
+
+ul,
+ol {
+padding-left: 1.8em;
+}
+li {
+margin: 0.3em 0;
+}
+
+ul:first-of-type {
+background-color: #252526;
+border-left: 3px solid #ce93d8;
+border-radius: 4px;
+padding: 0.8em 0.8em 0.8em 2.2em;
+margin: 1em 0;
+}
+
+strong {
+color: #ffffff;
+font-weight: 600;
+}
+em {
+color: #b0bec5;
+font-style: italic;
+}
+
+blockquote {
+border-left: 3px solid #ffb74d;
+background-color: #252526;
+margin: 1em 0;
+padding: 0.6em 1em;
+border-radius: 0 4px 4px 0;
+color: #ffb74d;
+}
+
+body>p:last-child {
+margin-top: 3em;
+color: #555;
+font-size: 0.85em;
+border-top: 1px solid #2a2a2a;
+padding-top: 1em;
+}
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">6502caEd Help</h1>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#introduction" id="toc-introduction">Introduction</a></li>
+<li><a href="#getting-started" id="toc-getting-started">Getting
+Started</a></li>
+<li><a href="#the-gtk-editor" id="toc-the-gtk-editor">The GTK
+Editor</a></li>
+<li><a href="#the-tui-editor" id="toc-the-tui-editor">The TUI
+Editor</a></li>
+<li><a href="#editing" id="toc-editing">Editing</a></li>
+<li><a href="#assembly" id="toc-assembly">Assembly</a></li>
+<li><a href="#include-manager" id="toc-include-manager">Include
+Manager</a></li>
+<li><a href="#find-and-replace" id="toc-find-and-replace">Find and
+Replace</a></li>
+<li><a href="#memory-map" id="toc-memory-map">Memory Map</a></li>
+<li><a href="#directives-reference" id="toc-directives-reference">Directives Reference</a></li>
+<li><a href="#expression-syntax" id="toc-expression-syntax">Expression
+Syntax</a></li>
+<li><a href="#addressing-modes" id="toc-addressing-modes">Addressing
+Modes</a></li>
+<li><a href="#support" id="toc-support">65816 Support</a></li>
+<li><a href="#code-folding" id="toc-code-folding">Code Folding</a></li>
+<li><a href="#memory-viewer-1" id="toc-memory-viewer-1">Memory
+Viewer</a></li>
+<li><a href="#simulator" id="toc-simulator">Simulator</a></li>
+<li><a href="#configuration-files" id="toc-configuration-files">Configuration Files</a></li>
+<li><a href="#keyboard-shortcuts-gtk" id="toc-keyboard-shortcuts-gtk">Keyboard Shortcuts — GTK</a></li>
+<li><a href="#keyboard-shortcuts-tui" id="toc-keyboard-shortcuts-tui">Keyboard Shortcuts — TUI</a></li>
+<li><a href="#installation" id="toc-installation">Installation</a></li>
+</ul>
+</nav>
+<p><em>MJD 2026</em></p>
+<p>A 6502/65C02/65816 assembler and editor available in two interfaces:
+a GTK graphical editor and a TUI (terminal) editor. Both share the same
+assembler core.</p>
+<hr />
+<h2 id="introduction">Introduction</h2>
+<p>The 6502caEd suite is designed for writing 6502-based assembly
+programs, released for general use.</p>
+<p>It consists of:</p>
+<ul>
+<li><strong>Core assembler</strong> — command-line assembler, also used
+by both editors</li>
+<li><strong>TUI editor</strong> — terminal-based editor with the
+assembler built in</li>
+<li><strong>GTK editor</strong> — full graphical editor with the
+assembler built in</li>
+</ul>
+<p>All three share exactly the same assembler core, so assembled output
+is identical regardless of which interface you use.</p>
+<p>The entire suite supports:</p>
+<ul>
+<li>6502 instruction set</li>
+<li>6502 undocumented instruction set (stable opcodes only)</li>
+<li>WDC 65C02 instruction set</li>
+<li>WDC 65816 instruction set</li>
+</ul>
+<p>Both editors feature customisable colour coding for instructions,
+labels, definitions, the memory viewer, and assembler output.</p>
+<hr />
+<h2 id="getting-started">Getting Started</h2>
+<h3 id="opening-a-file">Opening a File</h3>
+<p><strong>GTK:</strong> Use <strong>File → Open</strong> (Ctrl+O) or
+drag a file onto the editor window. Recent files are listed under
+<strong>File → Open Recent</strong>.</p>
+<p><strong>TUI:</strong> Press <strong>F10</strong> to open the menu
+bar, navigate to <strong>File → Open</strong>, or press
+<strong>Ctrl+O</strong> directly.</p>
+<h3 id="your-first-assembly">Your First Assembly</h3>
+<p>Create a new file (<strong>Ctrl+N</strong>) and write some code. The
+<code>.cpu</code> directive selects the target processor
+(<code>6502</code>, <code>6502u</code>, <code>65c02</code>, or
+<code>65816</code>):</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>    .cpu <span class="dv">6502</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    .<span class="bu">org</span> <span class="op">$</span><span class="bn">0800</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">start:</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    LDA <span class="op">#$</span><span class="bn">01</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    STA <span class="op">$</span><span class="bn">00</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    BRK</span></code></pre></div>
+<p>Press <strong>F5</strong> to check for errors, or <strong>F9</strong>
+to assemble and produce a binary. Errors and warnings appear in the
+Problems panel.</p>
+<h3 id="saving">Saving</h3>
+<ul>
+<li><strong>Ctrl+S</strong> — Save</li>
+<li><strong>Ctrl+Shift+S</strong> — Save As</li>
+</ul>
+<hr />
+<h2 id="the-gtk-editor">The GTK Editor</h2>
+<p>The GTK editor is the full graphical interface. It supports multiple
+tabs, syntax highlighting, find/replace with scope, a memory viewer, an
+include manager, and code folding.</p>
+<h3 id="window-layout">Window Layout</h3>
+<ul>
+<li><strong>Menu bar</strong> — File, Edit, View, Assembly, Preferences,
+Help</li>
+<li><strong>Tab bar</strong> — one tab per open file; click × to
+close</li>
+<li><strong>Editor area</strong> — main editing area with line numbers
+and syntax colouring</li>
+<li><strong>Problems panel</strong> — shows assembler errors and
+warnings (toggle with <strong>F8</strong>)</li>
+</ul>
+<h3 id="tabs">Tabs</h3>
+<p>Open multiple files simultaneously using tabs. Switch between them by
+clicking the tab labels. Each tab maintains its own undo history, fold
+state, and cursor position.</p>
+<p>When you click an entry in the Problems panel, the editor
+automatically switches to the correct tab (or opens the file if not
+already open) and jumps to the relevant line.</p>
+<h3 id="syntax-highlighting">Syntax Highlighting</h3>
+<p>The editor colours code automatically:</p>
+<ul>
+<li><strong>Instructions</strong> — highlighted in the instruction
+colour</li>
+<li><strong>Directives</strong> — <code>.org</code>, <code>.byte</code>,
+<code>.macro</code>, <code>.pragma</code>, <code>.halt</code> etc.</li>
+<li><strong>Labels</strong> — definitions and references</li>
+<li><strong>Comments</strong> — <code>;</code> or <code>//</code> to end
+of line</li>
+<li><strong>Numbers</strong> — decimal, <code>$hex</code>,
+<code>&amp;hex</code>, <code>%binary</code></li>
+<li><strong>Strings</strong> — double-quoted</li>
+</ul>
+<p>Colours are customisable via the <code>.colours</code> config file
+(see <a href="#configuration-files">Configuration Files</a>).</p>
+<h3 id="live-error-checking">Live Error Checking</h3>
+<p>Both editors run a background assembly check as you type. Errors and
+warnings appear as inline underlines and in the Problems panel within 50
+ms of you stopping typing. The line currently being edited is suppressed
+to avoid false errors mid-keystroke; errors reappear as soon as the
+cursor moves off that line.</p>
+<h3 id="zoom">Zoom</h3>
+<ul>
+<li><strong>Ctrl++</strong> or <strong>Ctrl+=</strong> — Zoom in</li>
+<li><strong>Ctrl+-</strong> — Zoom out</li>
+<li><strong>Ctrl+0</strong> — Reset zoom</li>
+</ul>
+<p>Hold <strong>Ctrl</strong> and scroll the mouse wheel to zoom.</p>
+<h3 id="dark-and-light-mode">Dark and Light Mode</h3>
+<p>Toggle between dark and light themes with
+<strong>Ctrl+Shift+L</strong> or via <strong>Preferences → Dark
+mode</strong>.</p>
+<hr />
+<h2 id="the-tui-editor">The TUI Editor</h2>
+<p>The TUI editor runs entirely in the terminal using ncurses. Launched
+with:</p>
+<pre><code>6502caEd [filename]</code></pre>
+<h3 id="navigation">Navigation</h3>
+<ul>
+<li><strong>F1</strong> — Open the menu bar</li>
+<li><strong>Arrow keys</strong> — Move cursor</li>
+<li><strong>Ctrl+Arrow</strong> — Move by word</li>
+<li><strong>Home / End</strong> — Start/end of line</li>
+<li><strong>Ctrl+Home / Ctrl+End</strong> — Start/end of file</li>
+<li><strong>Page Up / Page Down</strong> — Scroll by page</li>
+</ul>
+<h3 id="status-bar">Status Bar</h3>
+<p>The bottom of the screen shows the current file name, line/column
+position, and status messages (errors, save confirmations, search
+results).</p>
+<hr />
+<h2 id="editing">Editing</h2>
+<h3 id="selection">Selection</h3>
+<p>Click and drag, or hold <strong>Shift</strong> and press arrow keys,
+to select text. <strong>Backspace</strong>, <strong>Delete</strong>, or
+typing any character while a selection is active replaces the selection
+— standard editor behaviour.</p>
+<h3 id="undo-and-redo">Undo and Redo</h3>
+<ul>
+<li><strong>Ctrl+Z</strong> — Undo</li>
+<li><strong>Ctrl+Y</strong> (or <strong>Ctrl+Shift+Z</strong> in GTK) —
+Redo</li>
+</ul>
+<p>Undo history is maintained per file and persists while the file is
+open.</p>
+<h3 id="cut-copy-paste">Cut, Copy, Paste</h3>
+<ul>
+<li><strong>Ctrl+X</strong> — Cut selection</li>
+<li><strong>Ctrl+C</strong> — Copy selection</li>
+<li><strong>Ctrl+V</strong> — Paste</li>
+</ul>
+<p>Right-clicking in the GTK editor shows a context menu with Cut, Copy,
+Copy without Comments, and Paste. These work correctly with the current
+text selection.</p>
+<h3 id="comments">Comments</h3>
+<p>Toggle line comments with:</p>
+<ul>
+<li><strong>GTK:</strong> Ctrl+/ (toggles the comment marker on the
+current or selected lines)</li>
+<li><strong>TUI:</strong> Ctrl+K, then C to comment or U to
+uncomment</li>
+</ul>
+<p>The comment marker (<code>;</code> or <code>//</code>) is
+configurable in <strong>Preferences → Comment marker</strong>.</p>
+<h3 id="comment-alignment">Comment Alignment</h3>
+<p>When <strong>Keep comment column aligned</strong> is enabled, inline
+comments are automatically aligned to a fixed column. The target column
+is set via <strong>Preferences → Comment align column</strong> (default:
+column 40).</p>
+<h3 id="auto-indent">Auto Indent</h3>
+<p>When enabled (<strong>Preferences → Auto indent</strong>,
+Ctrl+Shift+I), pressing Enter automatically indents the new line to
+match the current line’s indentation.</p>
+<h3 id="tab-width">Tab Width</h3>
+<p>Set the tab stop width via <strong>Preferences → Tab width</strong>
+(Ctrl+Alt+T).</p>
+<h3 id="format-layout">Format Layout</h3>
+<p><strong>Edit → Format layout</strong> re-formats the current file:
+aligns operands, normalises spacing, and optionally aligns comments.</p>
+<h3 id="case-conversion">Case Conversion</h3>
+<p><strong>Edit → Auto formatter → Upper case / Lower case</strong>
+converts the selected text or current line to upper or lower case.</p>
+<h3 id="duplicate-line-removal">Duplicate Line Removal</h3>
+<p><strong>Edit → Remove duplicate lines</strong> removes any lines that
+are exact duplicates of earlier lines in the file.</p>
+<h3 id="unicode-replacement">Unicode Replacement</h3>
+<p><strong>Edit → Replace common Unicode</strong> replaces typographic
+characters (smart quotes, dashes, etc.) with their ASCII
+equivalents.</p>
+<hr />
+<h2 id="assembly">Assembly</h2>
+<h3 id="checking-vs-assembling">Checking vs Assembling</h3>
+<p>There are two assembly actions:</p>
+<ul>
+<li><p><strong>F5 — Check:</strong> runs the full assembler pipeline,
+reports all errors and warnings, but writes no binary output. Use this
+while editing to validate your code quickly.</p></li>
+<li><p><strong>F9 — Assemble:</strong> runs the full assembler pipeline
+and, on success, offers to save the binary output.</p></li>
+</ul>
+<h3 id="project-assembly-gtk-multiple-tabs">Project Assembly (GTK,
+multiple tabs)</h3>
+<p>When more than one file is open, pressing <strong>F9</strong>
+presents a choice:</p>
+<ul>
+<li><strong>Assemble Project</strong> — finds the project root file (the
+file that includes all others, even if it is not currently open as a
+tab) and assembles from there. This is the correct choice for multi-file
+projects.</li>
+<li><strong>Assemble This Tab</strong> — assembles only the current
+tab’s content, ignoring other files.</li>
+</ul>
+<p>The project root is located automatically using the Include Manager’s
+root detection (see <a href="#include-manager">Include Manager</a>).</p>
+<h3 id="errors-and-warnings">Errors and Warnings</h3>
+<p>Errors prevent binary output. Warnings are informational and do not
+stop assembly. Both appear in the Problems panel (<strong>F8</strong>)
+and as inline underlines in the editor.</p>
+<p>Clicking an entry in the Problems panel jumps directly to the
+relevant line, switching tabs or opening the file if necessary.</p>
+<h3 id="binary-output">Binary Output</h3>
+<p>After successful assembly, you are prompted to save the binary:</p>
+<ul>
+<li><strong>Assembled range</strong> — only the bytes that were
+written</li>
+<li><strong>Specify range</strong> — enter a custom start/end
+address</li>
+<li><strong>Entire 64KB</strong> — the full 64KB address space</li>
+<li><strong>16K page</strong> — a 16KB region (shown when
+applicable)</li>
+</ul>
+<p>The default binary extension is configurable via <strong>Assembly →
+Default extensions → Binary extension</strong>.</p>
+<h3 id="memory-viewer">Memory Viewer</h3>
+<p>After assembly, <strong>Assembly → Memory Viewer</strong> (Ctrl+M)
+opens a hex viewer showing the assembled memory image. You can inspect
+any address in the 64KB space and see which bytes were written by the
+assembler.</p>
+<h3 id="allow-undocumented-opcodes">Allow Undocumented Opcodes</h3>
+<p><strong>Assembly → Allow undocumented opcodes</strong> enables
+support for undocumented 6502 instructions (e.g. LAX, SAX, DCP).
+Disabled by default.</p>
+<h3 id="jump-to-definition">Jump to Definition</h3>
+<p>Place the cursor on a label and press <strong>Ctrl+F12</strong> to
+jump to where that label is defined.</p>
+<h3 id="find-references">Find References</h3>
+<p>Place the cursor on a label and press <strong>Shift+F11</strong>
+(GTK) or <strong>Ctrl+F11</strong> (TUI) to list all references to that
+label in the current file.</p>
+<h3 id="jump-history">Jump History</h3>
+<ul>
+<li><strong>F12</strong> — Jump forward in navigation history</li>
+<li><strong>Shift+F12</strong> — Jump back in navigation history</li>
+</ul>
+<hr />
+<h2 id="include-manager">Include Manager</h2>
+<p><strong>Assembly → Includes Manager</strong> (Ctrl+I) shows the
+complete include tree for the current project — all files brought in via
+<code>.include</code> directives, their nesting relationships, and
+whether each file is currently open in the editor.</p>
+<h3 id="root-detection">Root Detection</h3>
+<p>The include manager automatically finds the project root file. It
+first checks open tabs, then scans sibling
+<code>.asm</code>/<code>.s</code> files on disk to find which file
+includes the current one. This means the tree is correctly rooted on
+<code>os_init.asm</code> (for example) even if that file is not open as
+a tab.</p>
+<h3 id="opening-files">Opening Files</h3>
+<p>Double-clicking any file in the tree opens it in the editor. If the
+file is already open in a tab, that tab is activated instead of opening
+a duplicate.</p>
+<h3 id="open-file-highlighting">Open File Highlighting</h3>
+<p>Files that are currently open as tabs are highlighted in the tree so
+you can see at a glance which project files you have loaded.</p>
+<hr />
+<h2 id="find-and-replace">Find and Replace</h2>
+<p>Open the find bar with <strong>Ctrl+F</strong> (Find) or
+<strong>Ctrl+H</strong> (Find and Replace).</p>
+<h3 id="scope">Scope</h3>
+<p>The find bar includes a <strong>scope selector</strong> that controls
+which files are searched:</p>
+<table>
+<colgroup>
+<col style="width: 35%" />
+<col style="width: 65%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Scope</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>This Tab</strong></td>
+<td>Search only the currently active editor tab</td>
+</tr>
+<tr class="even">
+<td><strong>All Tabs</strong></td>
+<td>Search across every open tab</td>
+</tr>
+<tr class="odd">
+<td><strong>All Linked Files</strong></td>
+<td>Search the current file and all files reachable via
+<code>.include</code> from the project root</td>
+</tr>
+</tbody>
+</table>
+<p>The scope selector applies to both Find (Prev/Next) and Replace
+All.</p>
+<ul>
+<li><strong>Find with scope &gt; This Tab:</strong> when the search
+reaches the end of the current tab, it continues automatically in the
+next tab.</li>
+<li><strong>Replace All with All Linked Files:</strong> files that are
+open as tabs are modified in their live buffers; files not open are
+modified on disk directly.</li>
+</ul>
+<h3 id="find-options">Find Options</h3>
+<ul>
+<li><strong>Match case</strong> — toggles case-sensitive matching</li>
+<li><strong>Prev / Next</strong> — step through matches</li>
+<li><strong>Enter</strong> — find next; <strong>Shift+Enter</strong> —
+find previous</li>
+</ul>
+<h3 id="replace">Replace</h3>
+<ul>
+<li><strong>Replace</strong> — replace the current match and
+advance</li>
+<li><strong>Replace All</strong> — replace all matches in the current
+scope</li>
+</ul>
+<hr />
+<h2 id="memory-map">Memory Map</h2>
+<p>After assembly, the Memory Map popup (<strong>Assembly → Memory
+Map</strong>) shows a visual overview of the 64KB address space.</p>
+<h3 id="chart">Chart</h3>
+<p>The chart displays the full 64KB space as a grid of pages (256 bytes
+per row, 256 rows = 65536 bytes total). Each pixel represents one
+byte:</p>
+<ul>
+<li><strong>Blue</strong> — byte written by the assembler with an
+explicit instruction or data directive (<code>.byte</code>,
+<code>.word</code>, <code>EQUS</code>, etc.) after a <code>.org</code>
+directive</li>
+<li><strong>Empty</strong> — byte not written, or written only as
+<code>.res</code> placeholder fill</li>
+</ul>
+<p>Importantly, the map only shows bytes from
+<strong>intentional</strong> code and data placement. Variable
+reservations (<code>.res</code>) and any bytes emitted before the first
+<code>.org</code> are excluded, so the map reflects what actually ends
+up in ROM rather than zero-page bookkeeping.</p>
+<h3 id="range-table">Range Table</h3>
+<p>Below the chart, a table lists each contiguous range of written bytes
+with its start address, end address, and byte count, plus a total.</p>
+<h3 id="navigation-1">Navigation</h3>
+<p>The chart scrolls vertically. It automatically scrolls to bring the
+first written range into view when opened.</p>
+<hr />
+<h2 id="directives-reference">Directives Reference</h2>
+<p>Directives are case-insensitive. The leading <code>.</code> is
+optional for most.</p>
+<h3 id="origin-and-cpu">Origin and CPU</h3>
+<table>
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 54%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Directive</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>.cpu 6502</code></td>
+<td>Select NMOS 6502 CPU type.</td>
+</tr>
+<tr class="even">
+<td><code>.cpu 6502u</code></td>
+<td>Select NMOS 6502 with stable undocumented instructions.</td>
+</tr>
+<tr class="odd">
+<td><code>.cpu 65c02</code></td>
+<td>Select CMOS 65C02 CPU type.</td>
+</tr>
+<tr class="even">
+<td><code>.cpu 65816</code></td>
+<td>Select CMOS 65816 (aka <code>65c816</code>) type.</td>
+</tr>
+<tr class="odd">
+<td><code>.longa on/off</code></td>
+<td>16-bit / 8-bit accumulator immediate mode (65816 only).</td>
+</tr>
+<tr class="even">
+<td><code>.longi on/off</code></td>
+<td>16-bit / 8-bit index register immediate mode (65816 only).</td>
+</tr>
+<tr class="odd">
+<td><code>.org $addr</code></td>
+<td>Set the program counter to <code>$addr</code>. Also <code>*=</code>
+or <code>.pc=</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="data">Data</h3>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 27%" />
+<col style="width: 39%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Directive</th>
+<th>Example</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>.byte</code></td>
+<td><code>.byte $01, $02, &quot;hello&quot;</code></td>
+<td>Define one or more bytes. Accepts numbers, strings,
+expressions.</td>
+</tr>
+<tr class="even">
+<td><code>.word</code></td>
+<td><code>.word $1234, label</code></td>
+<td>Define 16-bit little-endian words.</td>
+</tr>
+<tr class="odd">
+<td><code>.dword</code></td>
+<td><code>.dword $12345678</code></td>
+<td>Define 32-bit little-endian doublewords.</td>
+</tr>
+<tr class="even">
+<td><code>.res</code></td>
+<td><code>.res 256, $00</code></td>
+<td>Reserve N bytes, filled with optional value (default 0).</td>
+</tr>
+<tr class="odd">
+<td><code>.align</code></td>
+<td><code>.align 256</code></td>
+<td>Advance PC to the next multiple of N.</td>
+</tr>
+<tr class="even">
+<td><code>.incbin</code></td>
+<td><code>.incbin &quot;file.bin&quot;</code></td>
+<td>Include raw binary file. Optional offset and length:
+<code>.incbin &quot;f.bin&quot;, 0, 128</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="guard-directives">Guard Directives</h3>
+<p>Guard directives let you define address ranges that trigger an error
+or warning when the assembler tries to write a byte there. This is
+useful for catching accidental writes into reserved or ROM-mapped
+regions.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>.halt  <span class="op">$</span>C000<span class="op">-$</span>CFFF <span class="st">&quot;write to OS ROM: $%s&quot;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>.alert <span class="op">$</span><span class="bn">0200</span><span class="op">-$</span><span class="bn">02FF</span> <span class="st">&quot;caution: write to page 2: $%s&quot;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>.unhalt  <span class="op">$</span>C000         <span class="co">; remove the halt guard starting at $C000</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>.unalert <span class="op">$</span><span class="bn">0200</span>         <span class="co">; remove the alert guard starting at $0200</span></span></code></pre></div>
+<ul>
+<li><strong><code>.halt</code></strong> — emits an
+<strong>error</strong> (halts assembly) if a byte is written to the
+specified range</li>
+<li><strong><code>.alert</code></strong> — emits a
+<strong>warning</strong> (assembly continues) if a byte is written to
+the specified range</li>
+<li><strong><code>.unhalt</code> / <code>.unalert</code></strong> —
+remove a guard by its start address (either keyword removes either
+type)</li>
+</ul>
+<p>The address range is <code>start-end</code> (inclusive). A single
+address with no <code>-end</code> guards a single byte.</p>
+<p><strong>Message format specifiers:</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th>Specifier</th>
+<th>Expands to</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>%s</code></td>
+<td>4-digit hex of the actual write address</td>
+</tr>
+<tr class="even">
+<td><code>%r</code></td>
+<td>Range as <code>XXXX-YYYY</code></td>
+</tr>
+</tbody>
+</table>
+<p>Guards only fire during an explicit <strong>F5 check</strong> or
+<strong>F9 assemble</strong> — they are silent during the live
+background syntax check. Each guard range emits at most 5 diagnostics
+before suppressing further hits with a <code>...</code> message.</p>
+<h3 id="include-guards">Include Guards</h3>
+<p>Use <code>.pragma once</code> at the top of any file that may be
+included more than once. The preprocessor ensures the file’s content is
+only assembled once per build, no matter how many times it appears in
+<code>.include</code> chains:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">; definitions.asm</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>.pragma once</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>MY_CONST <span class="op">=</span> <span class="op">$</span><span class="bn">1234</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>OTHER    <span class="op">=</span> <span class="op">$</span><span class="bn">5678</span></span></code></pre></div>
+<p>This is the preferred alternative to the <code>.ifndef</code> /
+<code>.def</code> / <code>.endif</code> guard pattern, which causes the
+editor to grey out the file contents. <code>.pragma once</code> has no
+visual side-effects.</p>
+<p><code>#pragma once</code> (C-style prefix) is also accepted.</p>
+<h3 id="symbols">Symbols</h3>
+<div class="sourceCode" id="cb5"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>NAME <span class="op">=</span> value        <span class="co">; define a constant (EQU-style)</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>NAME <span class="op">.=</span> value       <span class="co">; define only if not already defined</span></span></code></pre></div>
+<p>The current program counter can be captured as a symbol:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>block_start <span class="op">=</span> <span class="op">*</span>     <span class="co">; * = current PC</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>block_end   <span class="op">=</span> <span class="op">*</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>block_size  <span class="op">=</span> block_end <span class="op">-</span> block_start</span></code></pre></div>
+<h3 id="definitions-preprocessor-symbols">Definitions (Preprocessor
+Symbols)</h3>
+<p>Preprocessor symbols are distinct from assembler constants
+(<code>NAME = value</code>). They are handled before assembly and used
+mainly to drive conditional assembly. Both <code>#</code> and
+<code>.</code> prefixes work identically for all preprocessor
+directives, and all keywords are case-insensitive.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>.def NAME value      <span class="co">; define NAME with a text value</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>.def NAME            <span class="co">; define NAME with value 1 (true flag)</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>#def NAME value      <span class="co">; identical — # and . are interchangeable</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>.define NAME value   <span class="co">; longer spelling, same effect</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>#define NAME value   <span class="co">; identical</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>.undef NAME          <span class="co">; remove a definition</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>#undef NAME          <span class="co">; identical</span></span></code></pre></div>
+<p>Notes: - <code>cpu</code> is a reserved name — use <code>.cpu</code>
+to set it, not <code>.def cpu</code>. - Redefining the same name is an
+error; the first definition wins. - A <code>.def</code> without a value
+defaults to <code>1</code>.</p>
+<h3 id="conditionals">Conditionals</h3>
+<p>All conditional directives accept either a <code>.</code> or
+<code>#</code> prefix. All keywords are case-insensitive.</p>
+<h4 id="existence-tests">Existence tests</h4>
+<div class="sourceCode" id="cb8"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>.ifdef  NAME         <span class="co">; assemble block if NAME has been .def&#39;d</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>.ifndef NAME         <span class="co">; assemble block if NAME has NOT been .def&#39;d</span></span></code></pre></div>
+<h4 id="expression-test">Expression test</h4>
+<div class="sourceCode" id="cb9"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>.<span class="pp">if</span> expression       <span class="co">; assemble block if expression evaluates to non-zero</span></span></code></pre></div>
+<h4 id="chaining-and-else">Chaining and else</h4>
+<div class="sourceCode" id="cb10"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>.elif  expression    <span class="co">; else-if</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>.<span class="pp">else</span>                <span class="co">; unconditional else branch</span></span></code></pre></div>
+<h4 id="closing">Closing</h4>
+<div class="sourceCode" id="cb11"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>.endif               <span class="co">; end the conditional block</span></span></code></pre></div>
+<h4 id="full-example">Full example</h4>
+<div class="sourceCode" id="cb12"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>.def PLATFORM <span class="dv">2</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>.def DEBUG</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>.ifdef DEBUG</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">nop</span>             <span class="co">; only assembled when DEBUG is defined</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>.endif</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>.<span class="pp">if</span> PLATFORM <span class="op">==</span> <span class="dv">1</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>    lda <span class="op">#$</span><span class="bn">01</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>.elif PLATFORM <span class="op">==</span> <span class="dv">2</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>    lda <span class="op">#$</span><span class="bn">02</span></span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>.<span class="pp">else</span></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>    lda <span class="op">#$</span>FF</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>.endif</span></code></pre></div>
+<h4 id="rules-and-errors">Rules and errors</h4>
+<ul>
+<li><code>.elif</code> / <code>.else</code> after a <code>.else</code>
+is an error.</li>
+<li><code>.elif</code> / <code>.else</code> / <code>.endif</code> with
+no matching <code>.if</code> is an error.</li>
+<li>Nesting is supported up to 64 levels.</li>
+</ul>
+<h3 id="conditional-expressions">Conditional Expressions</h3>
+<p><code>.if</code> and <code>.elif</code> evaluate a full numeric
+expression.</p>
+<h4 id="defined-function"><code>defined()</code> function</h4>
+<div class="sourceCode" id="cb13"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>.<span class="pp">if</span> <span class="op">defined(</span>NAME<span class="op">)</span>    <span class="co">; 1 if NAME has been .def&#39;d, 0 otherwise</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>.<span class="pp">if</span> <span class="op">!defined(</span>NAME<span class="op">)</span>   <span class="co">; inverse</span></span></code></pre></div>
+<h4 id="operators-highest-precedence-first">Operators (highest
+precedence first)</h4>
+<table>
+<thead>
+<tr class="header">
+<th>Operator</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>!</code> <code>~</code> <code>-</code> <code>+</code></td>
+<td>Unary logical NOT, bitwise NOT, negate, identity</td>
+</tr>
+<tr class="even">
+<td><code>&lt;</code> <code>&gt;</code></td>
+<td>Unary low byte / high byte</td>
+</tr>
+<tr class="odd">
+<td><code>*</code> <code>/</code> <code>%</code></td>
+<td>Multiply, divide, modulo</td>
+</tr>
+<tr class="even">
+<td><code>+</code> <code>-</code></td>
+<td>Add, subtract</td>
+</tr>
+<tr class="odd">
+<td><code>&lt;&lt;</code> <code>&gt;&gt;</code></td>
+<td>Shift left, shift right</td>
+</tr>
+<tr class="even">
+<td><code>&amp;</code></td>
+<td>Bitwise AND</td>
+</tr>
+<tr class="odd">
+<td><code>^</code></td>
+<td>Bitwise XOR</td>
+</tr>
+<tr class="even">
+<td><code>\|</code></td>
+<td>Bitwise OR</td>
+</tr>
+<tr class="odd">
+<td><code>==</code> <code>!=</code> <code>&lt;</code> <code>&gt;</code>
+<code>&lt;=</code> <code>&gt;=</code></td>
+<td>Comparison (result 0 or 1)</td>
+</tr>
+<tr class="even">
+<td><code>&amp;&amp;</code></td>
+<td>Logical AND</td>
+</tr>
+<tr class="odd">
+<td><code>\|\|</code></td>
+<td>Logical OR</td>
+</tr>
+</tbody>
+</table>
+<p>Natural-language aliases: <code>.or</code>, <code>.and</code>,
+<code>.not</code> (also without dot).</p>
+<h4 id="cpu-type-in-conditionals">CPU type in conditionals</h4>
+<table>
+<thead>
+<tr class="header">
+<th><code>.cpu</code> setting</th>
+<th><code>cpu</code> value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>6502</code></td>
+<td><code>6502</code></td>
+</tr>
+<tr class="even">
+<td><code>6502u</code></td>
+<td><code>6502u</code></td>
+</tr>
+<tr class="odd">
+<td><code>65c02</code></td>
+<td><code>6503</code></td>
+</tr>
+<tr class="even">
+<td><code>65816</code></td>
+<td><code>65816</code></td>
+</tr>
+</tbody>
+</table>
+<div class="sourceCode" id="cb14"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>.cpu <span class="dv">65</span><span class="er">c02</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>.<span class="pp">if</span> cpu <span class="op">==</span> <span class="dv">6503</span>      <span class="co">; 65C02 uses numeric value 6503</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    stz <span class="op">$</span><span class="bn">00</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>.endif</span></code></pre></div>
+<h3 id="procedures-and-scopes">Procedures and Scopes</h3>
+<div class="sourceCode" id="cb15"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>.<span class="bu">proc</span> name          <span class="co">; begin procedure — labels inside are local to name</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">local_label:</span>    <span class="co">; accessible as name::local_label from outside</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>.endproc</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>.scope name         <span class="co">; same as .proc but no entry-point assumption</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>.endscope</span></code></pre></div>
+<h3 id="local-labels">Local Labels</h3>
+<p>Labels beginning with <code>@</code> are local to the surrounding
+<code>.proc</code>/<code>.scope</code>:</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>.<span class="bu">proc</span> myroutine</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>@loop<span class="op">:</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>    DEX</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>    BNE <span class="fu">@</span><span class="er">l</span>oop</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>.endproc</span></code></pre></div>
+<h3 id="macros">Macros</h3>
+<div class="sourceCode" id="cb17"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>.<span class="pp">macro</span> MYMACRO arg1<span class="op">,</span> arg2</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    LDA arg1</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>    STA arg2</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>.endmacro</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>    MYMACRO <span class="op">$</span><span class="bn">10</span><span class="op">,</span> <span class="op">$</span><span class="bn">20</span>    <span class="co">; invoke macro</span></span></code></pre></div>
+<h3 id="repeat">Repeat</h3>
+<div class="sourceCode" id="cb18"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>.<span class="pp">repeat</span> <span class="dv">4</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">NOP</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>.endrepeat</span></code></pre></div>
+<p>Repeats the enclosed block N times (N must be a constant,
+0–65536).</p>
+<h3 id="include">Include</h3>
+<div class="sourceCode" id="cb19"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>.<span class="bu">include</span> <span class="st">&quot;filename.asm&quot;</span>     <span class="co">; include relative to the current file&#39;s directory</span></span></code></pre></div>
+<p>Includes another source file. The path is resolved relative to the
+directory of the <strong>current</strong> file.</p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>.includeroot <span class="st">&quot;directory/&quot;</span>   <span class="co">; set the root include search directory (root file only)</span></span></code></pre></div>
+<p><code>.includeroot</code> sets a base directory that subsequent
+<code>.include</code> directives will search when the path has no
+directory separator. May only appear in the root file.</p>
+<p>For multi-file projects, place <code>.pragma once</code> at the top
+of each included file so it is safe to include from multiple places
+without double-assembling:</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co">; io.asm</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>.pragma once</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>.<span class="bu">include</span> <span class="st">&quot;definitions.asm&quot;</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="co">; ... io routines ...</span></span></code></pre></div>
+<h3 id="assertions-and-diagnostics">Assertions and Diagnostics</h3>
+<div class="sourceCode" id="cb22"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>.<span class="pp">assert</span> condition<span class="op">,</span> <span class="st">&quot;message&quot;</span>    <span class="co">; halt assembly with message if condition is false</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>.error <span class="st">&quot;message&quot;</span>                <span class="co">; always emit an error</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>.warning <span class="st">&quot;message&quot;</span>              <span class="co">; always emit a warning</span></span></code></pre></div>
+<hr />
+<h2 id="expression-syntax">Expression Syntax</h2>
+<p>Expressions can appear anywhere a value is expected.</p>
+<h3 id="number-literals">Number Literals</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Format</th>
+<th>Example</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Decimal</td>
+<td><code>255</code></td>
+<td>Plain integer</td>
+</tr>
+<tr class="even">
+<td>Hex</td>
+<td><code>$FF</code> or <code>&amp;FF</code></td>
+<td>Both forms accepted</td>
+</tr>
+<tr class="odd">
+<td>Binary</td>
+<td><code>%11001100</code></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>Character</td>
+<td><code>&#39;A&#39;</code></td>
+<td>ASCII value of character</td>
+</tr>
+</tbody>
+</table>
+<h3 id="operators">Operators</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Operator</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>+</code> <code>-</code> <code>*</code> <code>/</code></td>
+<td>Arithmetic</td>
+</tr>
+<tr class="even">
+<td><code>%</code></td>
+<td>Modulo</td>
+</tr>
+<tr class="odd">
+<td><code>&lt;&lt;</code> <code>&gt;&gt;</code></td>
+<td>Bit shift left / right</td>
+</tr>
+<tr class="even">
+<td><code>&amp;</code> <code>\|</code> <code>^</code></td>
+<td>Bitwise AND, OR, XOR</td>
+</tr>
+<tr class="odd">
+<td><code>~</code></td>
+<td>Bitwise NOT (unary)</td>
+</tr>
+<tr class="even">
+<td><code>==</code> <code>!=</code> <code>&lt;</code> <code>&gt;</code>
+<code>&lt;=</code> <code>&gt;=</code></td>
+<td>Comparison (result is 0 or 1)</td>
+</tr>
+<tr class="odd">
+<td><code>&amp;&amp;</code> <code>\|\|</code> <code>!</code></td>
+<td>Logical AND, OR, NOT</td>
+</tr>
+<tr class="even">
+<td><code>(</code> <code>)</code></td>
+<td>Grouping</td>
+</tr>
+</tbody>
+</table>
+<h3 id="special-symbols">Special Symbols</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Symbol</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>*</code> or <code>.</code></td>
+<td>Current program counter</td>
+</tr>
+<tr class="even">
+<td><code>&lt;expr</code></td>
+<td>Low byte of expression (bits 0–7)</td>
+</tr>
+<tr class="odd">
+<td><code>&gt;expr</code></td>
+<td>High byte of expression (bits 8–15)</td>
+</tr>
+<tr class="even">
+<td><code>.lobyte(expr)</code></td>
+<td>Low byte of expression</td>
+</tr>
+<tr class="odd">
+<td><code>.hibyte(expr)</code></td>
+<td>High byte of expression</td>
+</tr>
+<tr class="even">
+<td><code>.bankbyte(expr)</code></td>
+<td>Bank byte (bits 16–23)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="examples">Examples</h3>
+<div class="sourceCode" id="cb23"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>block_start <span class="op">=</span> <span class="op">*</span>             <span class="co">; capture current PC</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>LDA <span class="op">#&lt;</span>address               <span class="co">; low byte of address</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>LDA <span class="op">#&gt;</span>address               <span class="co">; high byte of address</span></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>LDA <span class="op">#(</span>end<span class="op">-</span>start<span class="op">)</span>            <span class="co">; length of a region</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>patch_target <span class="op">=</span> <span class="op">*</span> <span class="op">+</span> <span class="dv">1</span>        <span class="co">; address of next instruction&#39;s operand byte</span></span></code></pre></div>
+<hr />
+<h2 id="addressing-modes">Addressing Modes</h2>
+<h3 id="modes">6502 Modes</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Mode</th>
+<th>Syntax</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Implied</td>
+<td>—</td>
+<td><code>CLC</code></td>
+</tr>
+<tr class="even">
+<td>Accumulator</td>
+<td><code>A</code></td>
+<td><code>LSR A</code> or just <code>LSR</code></td>
+</tr>
+<tr class="odd">
+<td>Immediate</td>
+<td><code>#value</code></td>
+<td><code>LDA #$FF</code></td>
+</tr>
+<tr class="even">
+<td>Zero page</td>
+<td><code>$addr</code> (0..255)</td>
+<td><code>LDA $10</code></td>
+</tr>
+<tr class="odd">
+<td>Zero page, X</td>
+<td><code>$addr,X</code></td>
+<td><code>LDA $10,X</code></td>
+</tr>
+<tr class="even">
+<td>Zero page, Y</td>
+<td><code>$addr,Y</code></td>
+<td><code>LDX $10,Y</code></td>
+</tr>
+<tr class="odd">
+<td>Absolute</td>
+<td><code>$addr</code> (256+)</td>
+<td><code>LDA $1000</code></td>
+</tr>
+<tr class="even">
+<td>Absolute, X</td>
+<td><code>$addr,X</code></td>
+<td><code>LDA $1000,X</code></td>
+</tr>
+<tr class="odd">
+<td>Absolute, Y</td>
+<td><code>$addr,Y</code></td>
+<td><code>LDA $1000,Y</code></td>
+</tr>
+<tr class="even">
+<td>Indirect</td>
+<td><code>($addr)</code></td>
+<td><code>JMP ($FFFC)</code></td>
+</tr>
+<tr class="odd">
+<td>(Indirect, X)</td>
+<td><code>($addr,X)</code></td>
+<td><code>LDA ($10,X)</code></td>
+</tr>
+<tr class="even">
+<td>(Indirect), Y</td>
+<td><code>($addr),Y</code></td>
+<td><code>LDA ($10),Y</code></td>
+</tr>
+<tr class="odd">
+<td>Relative</td>
+<td>label</td>
+<td><code>BNE loop</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="c02-additional-modes">65C02 Additional Modes</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Mode</th>
+<th>Syntax</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Zero page indirect</td>
+<td><code>($addr)</code></td>
+<td><code>LDA ($10)</code></td>
+</tr>
+<tr class="even">
+<td>Absolute indexed indirect</td>
+<td><code>($addr,X)</code></td>
+<td><code>JMP ($1000,X)</code></td>
+</tr>
+<tr class="odd">
+<td>Relative (always)</td>
+<td>label</td>
+<td><code>BRA target</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="additional-modes">65816 Additional Modes</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Mode</th>
+<th>Syntax</th>
+<th>Example</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Absolute long</td>
+<td><code>$AABBCC</code></td>
+<td><code>LDA $018000</code></td>
+<td>24-bit address</td>
+</tr>
+<tr class="even">
+<td>Absolute long, X</td>
+<td><code>$AABBCC,X</code></td>
+<td><code>LDA $018000,X</code></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>Direct page indirect long</td>
+<td><code>[$dp]</code></td>
+<td><code>LDA [$20]</code></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>Direct page indirect long, Y</td>
+<td><code>[$dp],Y</code></td>
+<td><code>LDA [$20],Y</code></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>Stack relative</td>
+<td><code>offset,S</code></td>
+<td><code>LDA 3,S</code></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>Stack relative indirect, Y</td>
+<td><code>(offset,S),Y</code></td>
+<td><code>LDA (3,S),Y</code></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>Long relative</td>
+<td>label</td>
+<td><code>BRL target</code></td>
+<td>16-bit relative</td>
+</tr>
+<tr class="even">
+<td>Block move</td>
+<td><code>src,dst</code></td>
+<td><code>MVN $01,$02</code></td>
+<td>Bank numbers</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="support">65816 Support</h2>
+<p>Enable 65816 mode with <code>.cpu 65816</code>. The 65816 is fully
+backwards-compatible with 6502 and 65C02.</p>
+<h3 id="native-mode">Native Mode</h3>
+<div class="sourceCode" id="cb24"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>    <span class="bu">CLC</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>    XCE             <span class="co">; switch to native mode</span></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">REP</span> #$30        <span class="co">; 16-bit accumulator and index registers</span></span></code></pre></div>
+<h3 id="register-width">Register Width</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Instruction</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>REP #$20</code></td>
+<td>M=0 — accumulator is 16-bit</td>
+</tr>
+<tr class="even">
+<td><code>SEP #$20</code></td>
+<td>M=1 — accumulator is 8-bit (default)</td>
+</tr>
+<tr class="odd">
+<td><code>REP #$10</code></td>
+<td>X=0 — index registers are 16-bit</td>
+</tr>
+<tr class="even">
+<td><code>SEP #$10</code></td>
+<td>X=1 — index registers are 8-bit (default)</td>
+</tr>
+<tr class="odd">
+<td><code>REP #$30</code></td>
+<td>Both 16-bit</td>
+</tr>
+<tr class="even">
+<td><code>SEP #$30</code></td>
+<td>Both 8-bit</td>
+</tr>
+</tbody>
+</table>
+<p>The assembler tracks <code>REP</code>/<code>SEP</code> through the
+source to size immediate operands correctly. Use
+<code>.longa on/off</code> and <code>.longi on/off</code> to override
+when the assembler cannot infer the width state from the code flow.</p>
+<h3 id="long-addressing">Long Addressing</h3>
+<div class="sourceCode" id="cb25"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>    LDA <span class="op">$</span><span class="bn">018000</span>         <span class="co">; 24-bit address: bank 1, offset $8000</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>    JSL <span class="op">$</span><span class="bn">019000</span>         <span class="co">; call subroutine in bank 1</span></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>    RTL                 <span class="co">; return from long subroutine</span></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>    BRL far_label       <span class="co">; ±32KB relative branch</span></span></code></pre></div>
+<h3 id="block-move">Block Move</h3>
+<div class="sourceCode" id="cb26"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>    <span class="bu">REP</span> #$30</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>    LDA <span class="op">#$</span><span class="bn">00FF</span>          <span class="co">; count-1</span></span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>    LDX <span class="op">#$</span><span class="bn">2000</span>          <span class="co">; source offset</span></span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>    LDY <span class="op">#$</span><span class="bn">1000</span>          <span class="co">; destination offset</span></span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>    MVN <span class="op">$</span><span class="bn">02</span><span class="op">,$</span><span class="bn">01</span>         <span class="co">; move bank $02 → bank $01</span></span></code></pre></div>
+<hr />
+<h2 id="code-folding">Code Folding</h2>
+<p>Code folding hides blocks of comment lines or macro definitions,
+replacing them with a summary line. The file is always saved in fully
+unfolded form.</p>
+<h3 id="what-can-be-folded">What Can Be Folded</h3>
+<ul>
+<li><strong>Comment blocks</strong> — consecutive comment-only lines
+(<code>;</code> or <code>//</code>)</li>
+<li><strong>Macro definitions</strong> — from <code>.macro</code> to
+<code>.endmacro</code></li>
+</ul>
+<h3 id="toggling">Toggling</h3>
+<p><strong>GTK:</strong> Click the line number of a fold-start line, or
+press <strong>Ctrl+]</strong> with the cursor on that line.</p>
+<p><strong>TUI:</strong> Press <strong>Ctrl+]</strong> with the cursor
+on the first line of a foldable block.</p>
+<h3 id="enabledisable-all">Enable/Disable All</h3>
+<p><strong>GTK — Preferences → Fold:</strong></p>
+<ul>
+<li><strong>Fold Comments</strong> / <strong>Unfold
+Comments</strong></li>
+<li><strong>Fold Macros</strong> / <strong>Unfold Macros</strong></li>
+</ul>
+<hr />
+<h2 id="memory-viewer-1">Memory Viewer</h2>
+<p><strong>Assembly → Memory Viewer</strong> (Ctrl+M) opens a hex viewer
+showing the full 64KB assembled memory image.</p>
+<h3 id="navigation-2">Navigation</h3>
+<ul>
+<li><strong>Arrow keys</strong> — move one byte at a time</li>
+<li><strong>Page Up / Page Down</strong> — scroll by page</li>
+<li><strong>Ctrl+Home / Ctrl+End</strong> — jump to start/end</li>
+</ul>
+<h3 id="display">Display</h3>
+<p>Bytes written by the assembler are shown normally. Unwritten bytes
+are dimmed. The address of the selected byte is shown in the header.</p>
+<h3 id="editing-1">Editing</h3>
+<p>Type hex digits to edit bytes directly. Changed bytes are marked
+dirty. Save the modified image from the viewer’s own save function.</p>
+<hr />
+<h2 id="simulator">Simulator</h2>
+<p>The 6502caEd GTK editor includes an integrated 6502/65C02/65816
+simulator. Press <strong>F5</strong> (or Assembly → Run in Simulator) to
+assemble and launch.</p>
+<h3 id="toolbar">Toolbar</h3>
+<p>The simulator toolbar has two rows. The top row contains transport
+controls and the speed selector. The bottom row contains profile
+management and CPU options.</p>
+<table>
+<thead>
+<tr class="header">
+<th>Button</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Run (F5)</td>
+<td>Start or resume execution</td>
+</tr>
+<tr class="even">
+<td>Stop (F6)</td>
+<td>Pause execution</td>
+</tr>
+<tr class="odd">
+<td>Step (F7)</td>
+<td>Execute one instruction</td>
+</tr>
+<tr class="even">
+<td>Reset (Ctrl+R)</td>
+<td>Reset CPU and restart</td>
+</tr>
+<tr class="odd">
+<td>Reload ROM</td>
+<td>Reload last assembled binary without closing</td>
+</tr>
+<tr class="even">
+<td>Speed</td>
+<td>8Hz to MAX (uncapped)</td>
+</tr>
+<tr class="odd">
+<td>$DB=STP</td>
+<td>(6502 only) treat opcode $DB as a halt</td>
+</tr>
+</tbody>
+</table>
+<h3 id="simulator-profiles">Simulator Profiles</h3>
+<p>Profiles define the hardware configuration: CPU type, ROM ranges, IO
+device addresses, banking, and LCD display. They are stored as
+<code>.simprofile</code> files in <code>~/.6502caed/profiles/</code>
+(global) or alongside your source file (project-local).</p>
+<p>The profile toolbar shows the active profile name. Use the ⚙ button
+to edit it, <strong>+</strong> to create a new one, and 🗑 to delete
+it.</p>
+<p>Profile fields include:</p>
+<ul>
+<li><strong>CPU</strong> — 6502, 6502 (undoc), 65C02, or 65816</li>
+<li><strong>$DB=STP</strong> — (6502 only) map opcode $DB to a halt</li>
+<li><strong>ROM Ranges</strong> — up to 4 ROM regions with address
+range, bank, R/W and lock bits</li>
+<li><strong>IO Devices</strong> — enable/disable VIA1, VIA2, ACIA,
+Console TX/RX and their base addresses</li>
+<li><strong>Banking</strong> — bank register address, window, window
+size, number of banks</li>
+<li><strong>LCD Display</strong> — see <a href="#lcd-display">LCD
+Display</a> below</li>
+</ul>
+<h3 id="embedded-profiles-in-source-files">Embedded Profiles in Source
+Files</h3>
+<p>You can embed a profile override block directly in your
+<code>.asm</code> file using comment syntax. When you run the file, the
+simulator merges these settings with the currently selected profile —
+only the keys you specify are overridden.</p>
+<pre><code>;[profile]
+;[rom0]
+;enabled  = 1
+;bank     = -1
+;from     = C000
+;to       = FFFF
+;[lcd]
+;enabled    = 1
+;bus_width  = 8
+;cols       = 20
+;rows       = 4
+;strict     = 1
+;rs         = 1B0
+;rw         = 1B1
+;e          = 1B2
+;d0         = 1A0
+;d7         = 1A7
+;stp_on_db  = 1
+;[/profile]</code></pre>
+<p>The block must start with <code>;[profile]</code> and end with
+<code>;[/profile]</code> (with or without a space after the semicolon).
+Section headers like <code>;[lcd]</code> and key=value lines work
+exactly like a <code>.simprofile</code> file. The active profile in the
+dropdown is shown as <code>[src] profilename</code> while an embedded
+profile is in use.</p>
+<h3 id="via-panels">VIA Panels</h3>
+<p>Each enabled VIA is shown as a panel with bit number headers (7–0),
+Port A and Port B rows. Red buttons are outputs, uncoloured buttons are
+inputs. Click an input bit to toggle it. T1, T2 timer counts and the IFR
+flags are shown below.</p>
+<h3 id="acia-panel">ACIA Panel</h3>
+<p>The ACIA panel shows the baud rate, data format, and TCP port.
+Connect a serial terminal to the shown port to communicate with the
+simulated ACIA. The Console TX/RX addresses provide a simpler text I/O
+path — write a character to the TX address to print it in the terminal
+pane.</p>
+<h3 id="lcd-display">LCD Display (HD44780)</h3>
+<p>The simulator emulates an HD44780-compatible LCD display. Enable it
+in the profile editor under <strong>LCD Display</strong>.</p>
+<h4 id="pin-mapping">Pin Mapping</h4>
+<p>Each LCD signal is mapped to a specific VIA pin using the format
+<code>VIA Port Bit</code>, e.g. <code>1B2</code> = VIA1 port B bit 2.
+Click the <strong>…</strong> button next to each entry to use the pin
+picker.</p>
+<table>
+<thead>
+<tr class="header">
+<th>Pin</th>
+<th>Function</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>RS</td>
+<td>Register Select (0=command, 1=data)</td>
+</tr>
+<tr class="even">
+<td>RW</td>
+<td>Read/Write (0=write, 1=read)</td>
+</tr>
+<tr class="odd">
+<td>E</td>
+<td>Enable strobe (data latched on falling edge)</td>
+</tr>
+<tr class="even">
+<td>D0–D7</td>
+<td>8-bit data bus (8-bit mode)</td>
+</tr>
+<tr class="odd">
+<td>D4–D7</td>
+<td>4-bit data bus (4-bit mode, upper nibble first)</td>
+</tr>
+</tbody>
+</table>
+<h4 id="bit-interface">8-bit Interface</h4>
+<p>All 8 data pins (D0–D7) connected. Each command or data byte is sent
+as a single E strobe. The standard initialisation sequence sends
+Function Set ($38) three times, then Display Off, Clear, Entry Mode,
+Display On.</p>
+<h4 id="bit-interface-1">4-bit Interface</h4>
+<p>Only D4–D7 connected. Each byte requires two E strobes — high nibble
+first, then low nibble. The initialisation sequence sends nibble $3
+three times (forces 8-bit sync), then nibble $2 to switch to 4-bit
+mode.</p>
+<div class="sourceCode" id="cb28"><pre class="sourceCode asm"><code class="sourceCode fasm"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="co">; 4-bit init sequence</span></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>lda <span class="op">#$</span><span class="bn">30</span>        <span class="co">; nibble $3 on PA4-PA7</span></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>jsr LCD_NIB     <span class="co">; first  — function set 8-bit</span></span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>jsr LCD_NIB     <span class="co">; second</span></span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>jsr LCD_NIB     <span class="co">; third</span></span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>lda <span class="op">#$</span><span class="bn">20</span>        <span class="co">; nibble $2 — switch to 4-bit</span></span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>jsr LCD_NIB</span></code></pre></div>
+<h4 id="busy-flag">Busy Flag</h4>
+<p>With <strong>Strict timing</strong> enabled, the LCD enforces real
+HD44780 timing (~37µs per command, ~1.52ms for Clear/Home). Your code
+must either poll the busy flag or insert delays.</p>
+<p>To poll the busy flag: set RW=1, RS=0, pulse E high then low, then
+read the data bus. In 8-bit mode bit 7 is the busy flag. In 4-bit mode
+you must complete both nibble strobes — the busy flag is DB7, which
+arrives in the high nibble on D7.</p>
+<p>With <strong>Permissive</strong> mode (default), the busy flag is
+always clear and commands are accepted instantly at any speed.</p>
+<h4 id="ddram-layout">20×4 DDRAM Layout</h4>
+<p>The HD44780 DDRAM address space is non-contiguous. For a 20×4
+display:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Physical line</th>
+<th>DDRAM start</th>
+<th>DDRAM end</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Line 1</td>
+<td>$00</td>
+<td>$13</td>
+</tr>
+<tr class="even">
+<td>Line 2</td>
+<td>$40</td>
+<td>$53</td>
+</tr>
+<tr class="odd">
+<td>Line 3</td>
+<td>$14</td>
+<td>$27</td>
+</tr>
+<tr class="even">
+<td>Line 4</td>
+<td>$54</td>
+<td>$67</td>
+</tr>
+</tbody>
+</table>
+<p>Always use <code>LCD_DDRAM | ROW0/ROW1/ROW2/ROW3</code> to reposition
+before writing each line.</p>
+<h4 id="custom-characters-cgram">Custom Characters (CGRAM)</h4>
+<p>The HD44780 supports 8 user-defined 5×8 characters (codes 0–7). Write
+8 bitmap rows per character to CGRAM using Set CGRAM Address ($40)
+followed by data writes.</p>
+<p><strong>Note:</strong> character code $00 is also the C null
+terminator. Use a length-based write routine rather than null-terminated
+strings when displaying custom characters.</p>
+<h3 id="halt-instructions">Halt Instructions</h3>
+<p>None of the supported CPUs have a dedicated halt instruction, but the
+simulator provides several ways to stop execution cleanly:</p>
+<ul>
+<li><strong><code>JMP *</code></strong> — infinite loop to self, works
+on all CPU types. Press Stop (F6) to pause.</li>
+<li><strong><code>STP</code> ($DB)</strong> — native on 65C02 and 65816.
+Halts the CPU; the simulator pauses automatically.</li>
+<li>**<span class="math inline"><em>D</em><em>B</em> = <em>S</em><em>T</em><em>P</em><em>o</em><em>n</em>6502 *  * —<em>e</em><em>n</em><em>a</em><em>b</em><em>l</em><em>e</em><em>t</em><em>h</em><em>e</em>*</span>DB=STP*
+checkbox (or set <code>stp_on_db = 1</code> in the profile or embedded
+profile block) to make opcode $DB halt the 6502. Press Run (F5) or Reset
+to resume.</li>
+<li><strong>BRK=Halt</strong> — set BRK mode to Halt in the toolbar to
+pause on BRK instead of vectoring.</li>
+</ul>
+<hr />
+<h2 id="configuration-files">Configuration Files</h2>
+<p>6502caEd uses plain-text configuration files for colours and theme,
+found in:</p>
+<ul>
+<li><strong>Installed (deb):</strong> <code>/etc/6502caEd/</code></li>
+<li><strong>User override:</strong>
+<code>~/.config/6502caEd/</code></li>
+</ul>
+<p>User files take precedence over system files.</p>
+<h3 id="colour-file-6502caed.colours">Colour File
+(<code>6502caEd.colours</code>)</h3>
+<p>Controls syntax highlighting colours. Each line is
+<code>token_kind = #RRGGBB</code>:</p>
+<pre><code>instruction = #4fc3f7
+directive   = #ce93d8
+comment     = #546e7a
+label       = #a5d6a7
+number      = #ffb74d
+string      = #ef9a9a</code></pre>
+<h3 id="theme-file-6502caed.theme">Theme File
+(<code>6502caEd.theme</code>)</h3>
+<p>Controls the editor’s overall appearance:</p>
+<pre><code>background  = #1e1e1e
+foreground  = #d4d4d4
+gutter_bg   = #252526
+gutter_fg   = #858585</code></pre>
+<h3 id="config-files-dialog">Config Files Dialog</h3>
+<p><strong>GTK: Preferences → Config Files</strong> — view, edit, copy,
+and create configuration files without leaving the editor.</p>
+<hr />
+<h2 id="keyboard-shortcuts-gtk">Keyboard Shortcuts — GTK</h2>
+<h3 id="file">File</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Action</th>
+<th>Shortcut</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>New file</td>
+<td>Ctrl+N</td>
+</tr>
+<tr class="even">
+<td>Open file</td>
+<td>Ctrl+O</td>
+</tr>
+<tr class="odd">
+<td>Save</td>
+<td>Ctrl+S</td>
+</tr>
+<tr class="even">
+<td>Save As</td>
+<td>Ctrl+Shift+S</td>
+</tr>
+<tr class="odd">
+<td>Quit</td>
+<td>Ctrl+Q</td>
+</tr>
+</tbody>
+</table>
+<h3 id="edit">Edit</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Action</th>
+<th>Shortcut</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Undo</td>
+<td>Ctrl+Z</td>
+</tr>
+<tr class="even">
+<td>Redo</td>
+<td>Ctrl+Shift+Z or Ctrl+Y</td>
+</tr>
+<tr class="odd">
+<td>Cut</td>
+<td>Ctrl+X</td>
+</tr>
+<tr class="even">
+<td>Copy</td>
+<td>Ctrl+C</td>
+</tr>
+<tr class="odd">
+<td>Paste</td>
+<td>Ctrl+V</td>
+</tr>
+<tr class="even">
+<td>Find</td>
+<td>Ctrl+F</td>
+</tr>
+<tr class="odd">
+<td>Find and Replace</td>
+<td>Ctrl+H</td>
+</tr>
+<tr class="even">
+<td>Go to line</td>
+<td>Ctrl+G</td>
+</tr>
+</tbody>
+</table>
+<h3 id="view">View</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Action</th>
+<th>Shortcut</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Toggle Problems panel</td>
+<td>F8</td>
+</tr>
+<tr class="even">
+<td>Zoom in</td>
+<td>Ctrl++</td>
+</tr>
+<tr class="odd">
+<td>Zoom out</td>
+<td>Ctrl+-</td>
+</tr>
+<tr class="even">
+<td>Reset zoom</td>
+<td>Ctrl+0</td>
+</tr>
+<tr class="odd">
+<td>Toggle dark mode</td>
+<td>Ctrl+Shift+L</td>
+</tr>
+</tbody>
+</table>
+<h3 id="assembly-1">Assembly</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Action</th>
+<th>Shortcut</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Check (no binary)</td>
+<td>F5</td>
+</tr>
+<tr class="even">
+<td>Assemble (with binary)</td>
+<td>F9</td>
+</tr>
+<tr class="odd">
+<td>Memory Viewer</td>
+<td>Ctrl+M</td>
+</tr>
+<tr class="even">
+<td>Includes Manager</td>
+<td>Ctrl+I</td>
+</tr>
+</tbody>
+</table>
+<h3 id="navigation-3">Navigation</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Action</th>
+<th>Shortcut</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Jump to definition</td>
+<td>Ctrl+F12</td>
+</tr>
+<tr class="even">
+<td>Find references</td>
+<td>Shift+F11</td>
+</tr>
+<tr class="odd">
+<td>Jump forward</td>
+<td>F12</td>
+</tr>
+<tr class="even">
+<td>Jump back</td>
+<td>Shift+F12</td>
+</tr>
+</tbody>
+</table>
+<h3 id="preferences">Preferences</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Action</th>
+<th>Shortcut</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Toggle auto indent</td>
+<td>Ctrl+Shift+I</td>
+</tr>
+<tr class="even">
+<td>Toggle error underline</td>
+<td>Ctrl+Shift+U</td>
+</tr>
+<tr class="odd">
+<td>Toggle comment aligned</td>
+<td>Ctrl+Shift+K</td>
+</tr>
+<tr class="even">
+<td>Toggle comment marker</td>
+<td>Ctrl+/</td>
+</tr>
+<tr class="odd">
+<td>Set tab width</td>
+<td>Ctrl+Alt+T</td>
+</tr>
+<tr class="even">
+<td>Set comment align column</td>
+<td>Ctrl+Alt+C</td>
+</tr>
+</tbody>
+</table>
+<h3 id="folding">Folding</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Action</th>
+<th>Shortcut</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Toggle fold at cursor</td>
+<td>Ctrl+]</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="keyboard-shortcuts-tui">Keyboard Shortcuts — TUI</h2>
+<h3 id="file-1">File</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Action</th>
+<th>Shortcut</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>New file</td>
+<td>Ctrl+N</td>
+</tr>
+<tr class="even">
+<td>Open file</td>
+<td>Ctrl+O</td>
+</tr>
+<tr class="odd">
+<td>Save</td>
+<td>Ctrl+S</td>
+</tr>
+<tr class="even">
+<td>Save As</td>
+<td>Ctrl+Shift+S</td>
+</tr>
+<tr class="odd">
+<td>Quit</td>
+<td>Ctrl+Q</td>
+</tr>
+</tbody>
+</table>
+<h3 id="edit-1">Edit</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Action</th>
+<th>Shortcut</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Undo</td>
+<td>Ctrl+Z</td>
+</tr>
+<tr class="even">
+<td>Redo</td>
+<td>Ctrl+Y</td>
+</tr>
+<tr class="odd">
+<td>Find</td>
+<td>Ctrl+F</td>
+</tr>
+<tr class="even">
+<td>Find next</td>
+<td>F3</td>
+</tr>
+<tr class="odd">
+<td>Find previous</td>
+<td>Shift+F3</td>
+</tr>
+<tr class="even">
+<td>Replace</td>
+<td>Ctrl+R</td>
+</tr>
+<tr class="odd">
+<td>Go to line</td>
+<td>Ctrl+G</td>
+</tr>
+<tr class="even">
+<td>Comment line(s)</td>
+<td>Ctrl+K, then C</td>
+</tr>
+<tr class="odd">
+<td>Uncomment line(s)</td>
+<td>Ctrl+K, then U</td>
+</tr>
+</tbody>
+</table>
+<h3 id="navigation-4">Navigation</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Action</th>
+<th>Shortcut</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Menu bar</td>
+<td>F10</td>
+</tr>
+<tr class="even">
+<td>Next error/warning</td>
+<td>F8</td>
+</tr>
+<tr class="odd">
+<td>Previous error/warning</td>
+<td>Shift+F8</td>
+</tr>
+<tr class="even">
+<td>Jump to definition</td>
+<td>Ctrl+F12</td>
+</tr>
+<tr class="odd">
+<td>Find references</td>
+<td>Ctrl+F11</td>
+</tr>
+<tr class="even">
+<td>Jump forward</td>
+<td>F12</td>
+</tr>
+<tr class="odd">
+<td>Jump back</td>
+<td>Shift+F12</td>
+</tr>
+</tbody>
+</table>
+<h3 id="assembly-2">Assembly</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Action</th>
+<th>Shortcut</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Check (no binary)</td>
+<td>F5</td>
+</tr>
+<tr class="even">
+<td>Assemble (with binary)</td>
+<td>F9</td>
+</tr>
+</tbody>
+</table>
+<h3 id="folding-1">Folding</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Action</th>
+<th>Shortcut</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Toggle fold at cursor</td>
+<td>Ctrl+]</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="installation">Installation</h2>
+<h3 id="gtk-editor-.deb-package">GTK Editor — .deb Package</h3>
+<div class="sourceCode" id="cb31"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> dpkg <span class="at">-i</span> 6502caEdGtk_1.0.0_amd64.deb</span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="ex">6502caEdGtk</span></span></code></pre></div>
+<h3 id="tui-editor-.deb-package">TUI Editor — .deb Package</h3>
+<div class="sourceCode" id="cb32"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> dpkg <span class="at">-i</span> 6502caEd_1.0.0_amd64.deb</span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="ex">6502caEd</span> myfile.asm</span></code></pre></div>
+<p>To uninstall either package:</p>
+<div class="sourceCode" id="cb33"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt remove 6502caedgtk</span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt remove 6502caed</span></code></pre></div>
+<h3 id="building-from-source">Building from Source</h3>
+<p>Dependencies:</p>
+<div class="sourceCode" id="cb34"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt install cmake ninja-build pkg-config <span class="dt">\</span></span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>    libgtk-4-dev libgtksourceview-5-dev libncurses-dev</span></code></pre></div>
+<p>Build:</p>
+<div class="sourceCode" id="cb35"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cmake</span> <span class="at">-S</span> . <span class="at">-B</span> build <span class="at">-G</span> Ninja <span class="at">-DCMAKE_BUILD_TYPE</span><span class="op">=</span>Release <span class="at">-DED_BUILD_GTK</span><span class="op">=</span>ON</span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cmake</span> <span class="at">--build</span> build</span></code></pre></div>
+<p>Binaries produced in <code>build/6502caEd/</code>:</p>
+<ul>
+<li><code>6502caEdGtk</code> — GTK editor</li>
+<li><code>6502caEd</code> — TUI editor</li>
+<li><code>6502ca-cli</code> — command-line assembler only</li>
+</ul>
+<hr />
+<p><em>6502caEd — 6502/65C02/65816 Assembler and Editor</em></p>
+<script>
+/* Syntax highlighting fix for 6502caEd help pages.
+ *
+ * Pandoc uses fasm syntax highlighting which has two problems:
+ *
+ * 1. Partially recognised keywords: pandoc wraps the word but leaves the
+ *    leading dot as a bare text node, e.g.  "."<span class="pp">if</span>
+ *    The dot ends up white. We find those bare dots and colour them too.
+ *
+ * 2. Unrecognised keywords: .ifdef .ifndef .elif .elseif .endif .endifdef
+ *    .def .define .undef .cpu — appear as plain text with no span at all.
+ *    We wrap them in <span class="pp">.
+ */
+(function () {
+
+  /* ── Step 1: colour bare dots preceding an existing .pp span ─────────── */
+  document.querySelectorAll('pre code span.pp').forEach(function (span) {
+    var prev = span.previousSibling;
+    if (prev && prev.nodeType === Node.TEXT_NODE) {
+      var t = prev.textContent;
+      /* The bare text node often ends with "." possibly preceded by spaces */
+      if (t.slice(-1) === '.') {
+        var dot = document.createElement('span');
+        dot.className = 'pp';
+        dot.textContent = '.';
+        prev.textContent = t.slice(0, -1);
+        span.parentNode.insertBefore(dot, span);
+      }
+    }
+  });
+
+  /* ── Step 2: wrap unrecognised directive keywords in plain text nodes ── */
+  var DIRECTIVES = [
+    '.ifdef', '.ifndef', '.elif', '.elseif',
+    '.endif', '.endifdef', '.endmacro', '.endproc', '.endscope', '.endrepeat',
+    '.def', '.define', '.undef',
+    '.cpu', '.pragma',
+    '.halt', '.unhalt', '.alert', '.unalert',
+    '#ifdef', '#ifndef', '#elif', '#elseif',
+    '#endif', '#endifdef',
+    '#def', '#define', '#undef',
+    '#if', '#else', '#pragma',
+  ];
+
+  /* Sort longest-first so .endifdef matches before .endif etc. */
+  DIRECTIVES.sort(function (a, b) { return b.length - a.length; });
+
+  /* Build regex: match any directive followed by whitespace, end-of-string,
+     comma, semicolon, or open-paren.  Case-insensitive. */
+  var escaped = DIRECTIVES.map(function (d) {
+    return d.replace(/\./g, '\\.').replace(/#/g, '#');
+  });
+  var RE = new RegExp('(' + escaped.join('|') + ')(?=[\\s,;(\\r\\n]|$)', 'gi');
+
+  function wrapTextNode(node) {
+    var text = node.textContent;
+    RE.lastIndex = 0;
+    if (!RE.test(text)) return;
+    RE.lastIndex = 0;
+
+    var frag = document.createDocumentFragment();
+    var last = 0, m;
+    while ((m = RE.exec(text)) !== null) {
+      if (m.index > last) {
+        frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      }
+      var sp = document.createElement('span');
+      sp.className = 'pp';
+      sp.textContent = m[1];
+      frag.appendChild(sp);
+      last = m.index + m[1].length;
+    }
+    if (last < text.length) {
+      frag.appendChild(document.createTextNode(text.slice(last)));
+    }
+    node.parentNode.replaceChild(frag, node);
+  }
+
+  function walkCode(node) {
+    /* Skip existing spans — only process raw text nodes */
+    if (node.nodeType === Node.TEXT_NODE) {
+      wrapTextNode(node);
+    } else if (node.nodeType === Node.ELEMENT_NODE && node.tagName !== 'SPAN') {
+      /* Clone childNodes list before iterating — DOM mutates during walk */
+      Array.from(node.childNodes).forEach(walkCode);
+    }
+  }
+
+  document.querySelectorAll('pre code').forEach(function (code) {
+    Array.from(code.childNodes).forEach(walkCode);
+  });
+
+})();
+</script>
+</body>
+</html>

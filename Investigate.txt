@@ -1,0 +1,26 @@
+
+Carry on:
+implementing SDCARD
+
+Bugs:
+Can't control LCD from VIA2
+
+To add:
+Ensure $DP=STP is in the profile and also can be over ridden in comments
+"Copy to clipboard" option in profile window
+"Open in File Explorer" option in profile window
+Comment option ; [cpu=<speed>] option can be added or maybe .cpuspeed=<speed>.  <speed> exmaple: 2MHz
+Support devices:
+    from VIA:  I2C/24AA1026 EEPROM (A1,A2,SDA,SCL,WP)
+    from VIA:  I2C/MCP7940N RTC (SCA,SDA,MFP)
+    from 6502: SC28L92 / TL28L92 (A0-3,D0-7,/INRN(/IRQ),/CEN(/SELECT),RESET,/RD,/WD,Timers,IP0(CTSA),IP1(CTSB),IP2-6,OP0(RTSA),OP1(RTSB),OP2-7,I/M(tied high))
+    from VIA:  FT245RL (D0-7,/RXF./TXF,/RD,/WR,/PWREN)
+    from 6502: 74HCT573 -> LEDs (D0-7,LOAD,/OE)
+WSE slowndown circuit which stretches the high part of PHI2 +1 or +2 extra cycles. Selectable per 6502 bus device
+
+
+Ability to (from drop down and right click on a tab, if on a tab the is from that tabs point fo view, otherwise the current tab we're on):
+    Close all tabs
+    Close all other tabs
+    Close all tabs to the right
+    Close all tabs to the left

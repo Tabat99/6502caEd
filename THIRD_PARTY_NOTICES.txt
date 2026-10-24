@@ -1,0 +1,40 @@
+6502caEd — Third-party notices
+
+Copyright (c) 2026 MJD applies to the project's own code, licensed under MIT.
+The MIT licence does not relicense the external components below.
+
+GTK and GtkSourceView are licensed under the GNU Lesser General Public License.
+Their copyright notices and exact licence terms are supplied by their packages.
+GTK: https://www.gtk.org/
+GtkSourceView: https://gitlab.gnome.org/GNOME/gtksourceview
+
+The terminal editor uses ncurses on Linux or PDCurses on Windows. These retain
+their respective notices and licence terms. Other runtime libraries, image
+loaders and icon themes also retain their own licences.
+
+Windows distributions
+---------------------
+The third-party-licenses directory contains licence files copied from the
+MSYS2 UCRT64 packages present on the build machine. This collection may include
+packages that the application does not use, because the current bundler copies
+all DLLs from UCRT64/bin. The installed-packages.txt file records package names
+and versions for identifying the exact dependency builds. The collection is
+not a claim that every copied package has been audited.
+
+Linux distributions
+-------------------
+GTK, GtkSourceView and curses normally come from the system package manager.
+Consult the packages' documentation and /usr/share/doc for their licence texts.
+For an AppImage, also inspect the components actually bundled into that image.
+
+Source availability
+-------------------
+Library licence and source-distribution obligations remain in force. Before
+publishing binaries, the distributor must provide corresponding library source
+by a method permitted by each applicable licence. A licence viewer, a package
+list or a generic project URL does not by itself fulfil those obligations.
+MSYS2 package information and source recipes: https://packages.msys2.org/
+
+Fonts
+-----
+The application uses system fonts. No font files are supplied by this project.
