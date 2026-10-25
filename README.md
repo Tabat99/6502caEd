@@ -1,16 +1,14 @@
-This is a project that I've been working on for sometime and it's still not finished. However, I'm posting this to github in case anyone is interested in testing/using it. All files are saved in text for source code.
-
 # 6502caEd
 
 A C11 assembly development suite for 6502, 65C02 and 65816 projects, combining a command-line assembler, terminal and GTK editors, and an integrated hardware simulator.
 
-All three interfaces share the same assembler core. The GTK editor's optional simulator lets you run and debug programs against a configurable virtual machine, including two VIA devices, an ACIA serial interface, an HD44780 LCD and an SPI SD card.
+All three interfaces share the same assembler core. The GTK editor's optional simulator lets you run and debug programs against a configurable virtual machine, including two VIA devices, an ACIA serial interface, an HD44780 LCD and an SPI SD card. Serial programs can communicate with an external terminal over TCP or a real/USB serial port.
 
 ## Status
 
 This is an early project release. Bug reports and small, focused contributions are welcome. Processor support and simulator behaviour should be checked against your target hardware; the presence of an instruction or device model does not imply complete hardware compatibility.
 
-The simulator supports banked memory configurations. The assembler supports 65816 instructions and 24-bit operands, while each assembled binary currently covers a selectable range within a **64KB image**.
+The simulator supports banked memory configurations. The assembler supports 65816 instructions and 24-bit operands, while each assembled binary currently covers a selectable range within a **64 KiB image**.
 
 ## Screenshots
 
@@ -68,14 +66,66 @@ Build the GTK editor with `ED_BUILD_SIM=ON` to assemble, run and debug programs 
 
 - **Two VIA devices (VIA1 and VIA2):** configurable I/O devices with port panels for inspecting peripheral interactions.
 - **HD44780-compatible LCD:** test display routines with configurable VIA pin mappings, 4-bit or 8-bit transfers, and custom characters.
-- **SPI SD card:** test SD-card communication through VIA-connected SPI signals.
-- **ACIA serial interface:** test serial I/O, with a TCP connection for an external terminal.
+- **SPI SD card:** insert an image file and test SDSC or SDHC cards through configurable VIA-connected SPI signals. Create raw, FAT12, FAT16 or FAT32 images from the simulator.
+- **ACIA serial interface:** communicate over TCP or a real/USB serial port, with connection settings and a Force Disconnect control.
 - **Execution controls:** run, pause, single-step, reset and breakpoints, with register and disassembly views.
 - **Machine profiles:** configure the memory map, device addresses and peripheral wiring; source comments can supply profile overrides.
 
 Peripheral support is evolving, with more devices planned. See the [simulator manual](help/help.md#simulator) and [LCD/VIA guide](help/44780-lcd-via-guide/guide/44780_lcd_via.md) for configuration details and examples. Current limitations are listed below.
 
 The term **simulator** describes the complete virtual hardware environment; **emulation** describes how its CPU and devices reproduce the behaviour of the real components.
+
+## Installers and release files
+
+Release filenames use a consistent format:
+
+```text
+6502caEd-{version}-{operating-system}-{architecture}-{type}.{extension}
+```
+
+Examples for version **1.03**:
+
+| File | Contents |
+| --- | --- |
+| `6502caEd-1.03-linux-x86_64-GTK.AppImage` | Linux graphical editor and simulator |
+| `6502caEd-1.03-linux-amd64-GTK.deb` | Debian/Ubuntu graphical editor and simulator |
+| `6502caEd-1.03-linux-amd64-TUI.deb` | Debian/Ubuntu terminal editor |
+| `6502caEd-1.03-linux-amd64-CLI.deb` | Debian/Ubuntu command-line assembler |
+| `6502caEd-1.03-windows-x86_64-ALL-setup.exe` | Windows installer containing GTK, TUI and CLI interfaces |
+
+`TUI` means terminal user interface. Debian packages use Debian architecture names such as `amd64`; AppImage and Windows filenames use `x86_64`. The Windows installer currently bundles all three interfaces rather than producing separate installers.
+
+Build scripts read component versions from `versions.txt`. A combined Windows installer requires matching component versions, or a common `-Version` override. To preview filenames without building:
+
+```sh
+bash build_Installers.sh --list
+```
+
+```powershell
+.\build_Windows.ps1 -List
+```
+
+Generated packages are written to `installers/`. Use the scripts' help options for build choices and version overrides.
+
+### SD-card support
+
+The SPI card model supports single- and multi-block reads and writes, command/data CRC handling, erase operations and capacity reporting. SDSC uses byte addressing and supports configurable transfer lengths from 1 to 512 bytes; SDHC uses block addressing and 512-byte transfers. Image access supports offsets above 2 GiB.
+
+Timing settings cover read delay, write busy time, erase busy time and maximum SPI clock, with a **Defaults** button. Strict timing uses simulated CPU cycles. These settings provide representative behaviour; they do not reproduce the performance of a particular physical card.
+
+The image-creation dialog offers **Raw Image**, **FAT12**, **FAT16** and **FAT32**. Creating a formatted image and accessing a filesystem from a 6502 program are separate operations: the supplied native assembly library supports **FAT16**.
+
+### Native 6502 libraries and examples
+
+- **Raw SD API:** initialise a card, obtain capacity, and read or write 512-byte sectors without a filesystem.
+- **FAT16 library:** mount a supported volume, enumerate root-directory entries, create a new file, and read/write/close a sequential file. VIA addresses, SPI pins, zero-page workspace and buffers are configurable.
+- **FAT16 round-trip demo:** create a file, write a string, close it, clear the buffer, reopen it, read back and compare.
+- **Interactive FAT16 menu:** format a card, create `HELLO.TXT` containing `HELLO WORLD`, check that it exists, and read back and verify its contents. Formatting requires confirmation and replaces existing filesystem/partition information. The formatter accepts cards from 16 MiB to 2 GiB.
+- **Serial examples:** a configurable ACIA driver, an interactive serial demo and a visible demo that logs received/transmitted bytes in the simulator console. A Python TCP terminal is supplied for testing.
+
+The native FAT16 library uses 512-byte sectors, short 8.3 filenames, root-directory files and one open file at a time. It does not currently provide subdirectories, long filenames, append/seek/delete operations or FAT12/FAT32 filesystem access. Raw sector access remains available independently.
+
+The visible serial demo deliberately converts lowercase input to uppercase for its reply. Serial data normally appears in the connected terminal; the visible demo also mirrors activity to the simulator console. Opening a physical serial port reports the port as connected, but does not establish that another device is responding.
 
 ## Build on Linux
 
@@ -167,12 +217,13 @@ Assemble it using the CLI-only build:
 
 This produces five bytes: `A9 01 85 00 00`. The output range is inclusive; without `--start` and `--end`, the CLI writes the full 65,536-byte image. The single quotes preserve the dollar signs in POSIX shells.
 
-On first launch, the applications ask for licence acceptance. The CLI currently needs an interactive response before it can assemble a file or display version information.
+The applications start without a licence acceptance prompt. In the GTK editor, open **Help → About → Licence** to read the MIT licence, or **Third-party notices** for dependency information. The CLI prints its licence with `--license`.
 
 ### Useful CLI options
 
 | Option | Purpose |
 | --- | --- |
+| `--license` | Print the MIT licence and exit |
 | `--cpu 6502`, `--cpu 65c02`, `--cpu 65816` | Select the processor |
 | `--undoc` | Enable undocumented 6502 opcodes |
 | `-I directory` | Add an include search directory; repeat as needed |
@@ -186,7 +237,7 @@ On first launch, the applications ask for licence acceptance. The CLI currently 
 
 ## Using the editors
 
-Open or create an assembly file, then use the Assembly menu to check it or produce a binary. Common shortcuts include:
+Open or create an assembly file, then use the Assembly menu to check it or produce a binary. GTK **File → Open** and **File → Save As** share the last successfully used source folder for the current session. Common shortcuts include:
 
 | Shortcut | Action |
 | --- | --- |
@@ -218,13 +269,33 @@ The repository also includes `build_help.sh`, `build_Installers.sh` and `build_W
 | `6502caEd/sim/` | CPU, memory, peripherals and simulator interface |
 | `help/` | Manual and hardware guides |
 
+## Tests
+
+The repository includes automated tests for the SPI SD-card model, filesystem integration and serial behaviour. Run tests from the repository root; test scripts need the accompanying source tree, not just an extracted patch directory.
+
+```sh
+bash tests/run_sd_tests.sh
+bash tests/run_fatfs_tests.sh
+python3 tests/test_acia_refresh.py
+```
+
+The SD suite covers SDSC/SDHC transfers, partial lengths, CRCs, boundaries, image preservation, no-card behaviour and a sparse 4 GiB image. Independent FatFs integration cases exercise FAT16/FAT32, partitioned and unpartitioned images, and both card types. These host-side FatFs tests are separate from the native 6502 FAT16 library.
+
+For the serial transport suite, provide the path to a built CLI assembler:
+
+```sh
+ASSEMBLER=/absolute/path/to/6502ca-cli bash tests/run_acia_transport_tests.sh
+```
+
+Serial tests include TCP and Linux pseudo-terminal coverage. Real serial hardware and Windows COM-port behaviour also need validation on the target system.
+
 ## Known limitations
 
 - The CLI's `.cpu 65816` handling needs the explicit flag described above.
-- The first-run CLI licence prompt prevents unattended use until acceptance has been recorded; declining or reaching end-of-input currently exits with status 0.
 - 65816 simulation is incomplete; do not assume full native-mode or cycle-accurate behaviour.
-- An included development note reports an LCD control problem when using VIA2. That issue has not been independently verified here.
-- The source snapshot does not include an automated regression suite.
+- SD support models SPI-mode behaviour; it is not a complete SD specification implementation and does not provide native SD-bus, SDIO or UHS operation.
+- Physical serial-port support does not model every modem-control, break or line-error condition.
+- Automated tests cover selected behaviours and do not establish complete hardware compatibility.
 
 ## Reporting problems and contributing
 
@@ -234,4 +305,6 @@ Keep pull requests focused and include a reproducible example or test for behavi
 
 ## Licence
 
-The supplied [licence notice](6502caEd/license-readme.txt) states **GNU GPL version 3 or, at your option, any later version**. See that notice for the warranty disclaimer and licence reference.
+© 2026 MJD. The project's own code is released under the **MIT License**; see [LICENSE](LICENSE).
+
+GTK, GtkSourceView, curses, bundled runtime libraries and other external components retain their own licences. See [third-party notices](THIRD_PARTY_NOTICES.txt). The Windows packager includes the MSYS2 licence files and package versions; dependency source-distribution requirements must also be met when publishing binaries.
