@@ -80,6 +80,11 @@ struct sim_win_t {
   GtkWidget *lbl_acia_settings;
   GtkWidget *lbl_acia_cpb; /* cycles per bit */
   GtkWidget *lbl_acia_conn;
+  GtkWidget *lbl_acia_transport;
+  GtkWidget *dd_acia_transport;
+  GtkWidget *entry_acia_device;
+  GtkWidget *spin_acia_port;
+  GtkWidget *btn_acia_disconnect;
 
   /* Speed info label — shows warning when visual updates are skipped */
   GtkWidget *lbl_speed_info;

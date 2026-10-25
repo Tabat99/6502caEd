@@ -1,10 +1,12 @@
 #pragma once
 /* acia.h — 65C51 Asynchronous Communications Interface Adapter
- * TCP socket backend: acts as a server on a configurable port.
- * Connect any terminal (PuTTY, minicom, netcat) to use the serial port.
+ * TCP server or native Windows COM / POSIX serial-device backend.
+ * Transport changes must be protected by the simulator state lock.
  */
 #include <stdint.h>
 #include <stdbool.h>
+
+typedef enum { ACIA_TRANSPORT_TCP, ACIA_TRANSPORT_SERIAL } acia_transport_t;
 
 /* Register offsets from base address */
 #define ACIA_DATA    0x0   /* Transmit (W) / Receive (R) data register */
@@ -56,9 +58,15 @@ typedef struct {
     int      cpu_hz;         /* CPU clock in Hz (for baud timing) */
 
     /* TCP server */
-    int      server_fd;  /* listening socket, -1 if not open */
-    int      client_fd;  /* connected client, -1 if none */
+    intptr_t server_fd;  /* listening socket, -1 if not open */
+    intptr_t client_fd;  /* connected client, -1 if none */
     int      tcp_port;
+
+    acia_transport_t transport;
+    intptr_t serial_fd;          /* native handle/fd, -1 when closed */
+    void *serial_saved;          /* original native port settings */
+    char serial_path[512];
+    char transport_error[192];
 
     /* IRQ */
     acia_irq_fn irq_fn;
@@ -73,7 +81,7 @@ void acia_init(acia_t *a, int tcp_port, int cpu_hz,
 /* Open the TCP server socket. Call after acia_init. */
 bool acia_tcp_open(acia_t *a);
 
-/* Close TCP server and any connected client */
+/* Close all transport resources (TCP listener/client and native serial). */
 void acia_tcp_close(acia_t *a);
 
 void acia_reset(acia_t *a);
@@ -85,10 +93,14 @@ void acia_tick(acia_t *a);
 uint8_t acia_read (acia_t *a, uint8_t reg);
 void    acia_write(acia_t *a, uint8_t reg, uint8_t val);
 
-/* True if a client is currently connected */
+/* TCP: peer connected. Serial: OS device open, independent of modem DCD. */
 bool acia_connected(acia_t *a);
 
 /* Current settings as strings (for UI display) */
 void acia_format_settings(acia_t *a, char *buf, int buf_len);
 void acia_set_cpu_hz(acia_t *a, long cpu_hz); /* update baud timing */
 void acia_format_timing(acia_t *a, char *buf, int buf_len);
+
+/* Caller must hold the simulator state lock when the CPU is running. */
+void acia_disconnect(acia_t *a); /* close peer/device; keep TCP listener */
+bool acia_serial_open(acia_t *a, const char *path);

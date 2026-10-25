@@ -47,6 +47,8 @@ typedef struct {
     bool        acia_enable;
     uint32_t    acia_base;
     int         acia_tcp_port;
+    int         acia_transport;  /* 0 TCP, 1 native serial */
+    char        acia_serial_device[512];
 
     /* Simple I/O */
     bool        simio_enable;

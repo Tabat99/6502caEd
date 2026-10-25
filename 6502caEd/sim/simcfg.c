@@ -16,6 +16,12 @@ void simcfg_defaults(simcfg_t *cfg) {
     cfg->acia_enable    = true;
     cfg->acia_base      = 0x9020;
     cfg->acia_tcp_port  = 6551;
+    cfg->acia_transport = 0;
+#ifdef _WIN32
+    snprintf(cfg->acia_serial_device,sizeof(cfg->acia_serial_device),"COM3");
+#else
+    snprintf(cfg->acia_serial_device,sizeof(cfg->acia_serial_device),"/dev/ttyUSB0");
+#endif
     cfg->simio_enable   = true;
     cfg->simio_tx_addr  = 0x9030;
     cfg->simio_rx_addr  = 0x9031;
@@ -90,6 +96,8 @@ bool simcfg_load(simcfg_t *cfg, const char *path) {
         else if (!strcmp(key,"acia_enable"))    cfg->acia_enable   = parse_bool(val);
         else if (!strcmp(key,"acia_base"))      cfg->acia_base     = parse_hex(val);
         else if (!strcmp(key,"acia_tcp_port"))  cfg->acia_tcp_port = atoi(val);
+        else if (!strcmp(key,"acia_transport")) cfg->acia_transport = !strcmp(val,"serial") ? 1 : 0;
+        else if (!strcmp(key,"acia_serial_device")) snprintf(cfg->acia_serial_device,sizeof(cfg->acia_serial_device),"%s",val);
         else if (!strcmp(key,"simio_enable"))   cfg->simio_enable  = parse_bool(val);
         else if (!strcmp(key,"simio_tx_addr"))  cfg->simio_tx_addr = parse_hex(val);
         else if (!strcmp(key,"simio_rx_addr"))  cfg->simio_rx_addr = parse_hex(val);
@@ -151,7 +159,9 @@ bool simcfg_save(const simcfg_t *cfg, const char *path) {
 
     fprintf(f, "acia_enable   = %d\n", cfg->acia_enable ? 1 : 0);
     fprintf(f, "acia_base     = %04X\n", cfg->acia_base);
-    fprintf(f, "acia_tcp_port = %d\n\n", cfg->acia_tcp_port);
+    fprintf(f, "acia_tcp_port = %d\n", cfg->acia_tcp_port);
+    fprintf(f, "acia_transport = %s\n", cfg->acia_transport ? "serial" : "tcp");
+    fprintf(f, "acia_serial_device = %s\n\n", cfg->acia_serial_device);
 
     fprintf(f, "simio_enable  = %d\n", cfg->simio_enable ? 1 : 0);
     fprintf(f, "simio_tx_addr = %04X\n", cfg->simio_tx_addr);

@@ -726,7 +726,12 @@ static void sim_apply_profile(sim_win_t *w, const simprofile_t *prof,
   w->sim.acia_enable = p->acia.enabled;
   if (p->acia.enabled) {
     mem_add_io(&w->sim.mem, p->acia.addr, 4, acia_rd, acia_wr, w, "ACIA");
-    acia_tcp_open(&w->sim.acia);
+    if (cfg && cfg->acia_transport) {
+      /* Real devices are only opened by an explicit Connect click. */
+      w->sim.acia.transport = ACIA_TRANSPORT_SERIAL;
+      snprintf(w->sim.acia.serial_path, sizeof(w->sim.acia.serial_path),
+               "%s", cfg->acia_serial_device);
+    } else acia_tcp_open(&w->sim.acia);
   }
 
   /* Simple IO (TX/RX share a 2-byte region) */
@@ -799,8 +804,11 @@ static void via_irq_cb(bool asserted, void *ud) {
 }
 static void acia_irq_cb(bool asserted, void *ud) {
   sim_win_t *w = (sim_win_t *)ud;
-  if (asserted)
-    w->sim.cpu.irq = true;
+  /* Releasing ACIA IRQ must not leave the CPU IRQ line latched high.
+   * Keep it asserted if either VIA still has an enabled pending interrupt. */
+  w->sim.cpu.irq = asserted ||
+      (w->sim.via_enable[0] && (w->sim.via[0].IFR & w->sim.via[0].IER & 0x7f)) ||
+      (w->sim.via_enable[1] && (w->sim.via[1].IFR & w->sim.via[1].IER & 0x7f));
 }
 
 /* ---------------------------------------------------------------------------
@@ -1608,6 +1616,41 @@ static GtkWidget *build_via_panel(sim_win_t *w, int idx, const char *title) {
 /* ---------------------------------------------------------------------------
  * Build ACIA panel
  * ------------------------------------------------------------------------- */
+static void acia_force_disconnect_clicked(GtkButton *button, gpointer ud) {
+  (void)button;
+  sim_win_t *w = ud;
+  pthread_mutex_lock(&w->sim.state_lock);
+  acia_disconnect(&w->sim.acia);
+  pthread_mutex_unlock(&w->sim.state_lock);
+}
+
+static void acia_connect_clicked(GtkButton *button, gpointer ud) {
+  (void)button;
+  sim_win_t *w = ud;
+  bool serial = gtk_drop_down_get_selected(GTK_DROP_DOWN(w->dd_acia_transport)) == 1;
+  const char *device = gtk_entry_buffer_get_text(
+      gtk_entry_get_buffer(GTK_ENTRY(w->entry_acia_device)));
+  int port = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(w->spin_acia_port));
+  char error[256];
+  pthread_mutex_lock(&w->sim.state_lock);
+  w->sim.acia.tcp_port = port;
+  bool ok = serial ? acia_serial_open(&w->sim.acia, device) : acia_tcp_open(&w->sim.acia);
+  snprintf(error, sizeof(error), "%s", w->sim.acia.transport_error);
+  pthread_mutex_unlock(&w->sim.state_lock);
+  w->cfg.acia_transport = serial;
+  w->cfg.acia_tcp_port = port;
+  snprintf(w->cfg.acia_serial_device, sizeof(w->cfg.acia_serial_device), "%s", device);
+  char cfgpath[1024];
+  snprintf(cfgpath, sizeof(cfgpath), "%s/sim.cfg", g_get_home_dir());
+  simcfg_save(&w->cfg, cfgpath);
+  if (!ok) {
+    GtkAlertDialog *dialog = gtk_alert_dialog_new("ACIA connection failed.\n%s",
+        error[0] ? error : "Check the TCP port, device path, permissions and whether another program is using it.");
+    gtk_alert_dialog_show(dialog, GTK_WINDOW(w->window));
+    g_object_unref(dialog);
+  }
+}
+
 static GtkWidget *build_acia_panel(sim_win_t *w) {
   GtkWidget *frame = gtk_frame_new("ACIA");
   GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
@@ -1625,18 +1668,47 @@ static GtkWidget *build_acia_panel(sim_win_t *w) {
   gtk_widget_set_tooltip_text(
       w->lbl_acia_cpb, "Cycles per bit at current baud rate and CPU clock");
 
-  char port_str[32];
-  snprintf(port_str, sizeof(port_str), "TCP :%d", w->cfg.acia_tcp_port);
-  GtkWidget *lbl_port = gtk_label_new(port_str);
-  gtk_widget_add_css_class(lbl_port, "reg-name");
+  w->lbl_acia_transport = gtk_label_new("");
+  gtk_label_set_wrap(GTK_LABEL(w->lbl_acia_transport), TRUE);
+  gtk_label_set_max_width_chars(GTK_LABEL(w->lbl_acia_transport), 24);
+  gtk_widget_add_css_class(w->lbl_acia_transport, "reg-name");
 
   w->lbl_acia_conn = gtk_label_new("Disconnected");
   gtk_widget_add_css_class(w->lbl_acia_conn, "acia-disc");
 
   gtk_box_append(GTK_BOX(vbox), w->lbl_acia_settings);
   gtk_box_append(GTK_BOX(vbox), w->lbl_acia_cpb);
-  gtk_box_append(GTK_BOX(vbox), lbl_port);
+  gtk_box_append(GTK_BOX(vbox), w->lbl_acia_transport);
   gtk_box_append(GTK_BOX(vbox), w->lbl_acia_conn);
+
+  GtkWidget *connection_settings = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+  GtkWidget *connection_expander = gtk_expander_new("Connection settings");
+  gtk_expander_set_child(GTK_EXPANDER(connection_expander), connection_settings);
+  gtk_box_append(GTK_BOX(vbox), connection_expander);
+  const char *modes[] = {"TCP", "Serial device", NULL};
+  w->dd_acia_transport = gtk_drop_down_new_from_strings(modes);
+  gtk_drop_down_set_selected(GTK_DROP_DOWN(w->dd_acia_transport), w->cfg.acia_transport ? 1 : 0);
+  gtk_box_append(GTK_BOX(connection_settings), w->dd_acia_transport);
+  w->entry_acia_device = gtk_entry_new();
+  gtk_editable_set_width_chars(GTK_EDITABLE(w->entry_acia_device), 14);
+  gtk_entry_buffer_set_text(gtk_entry_get_buffer(GTK_ENTRY(w->entry_acia_device)),
+      w->cfg.acia_serial_device, -1);
+  gtk_widget_set_tooltip_text(w->entry_acia_device,
+      "Windows: COM3 or COM10. Linux: /dev/ttyUSB0, /dev/ttyACM0 or /dev/ttyS0. "
+      "Baud/framing follow ACIA registers. Native serial uses no flow control.");
+  gtk_box_append(GTK_BOX(connection_settings), w->entry_acia_device);
+  gtk_box_append(GTK_BOX(connection_settings), gtk_label_new("TCP port:"));
+  w->spin_acia_port = gtk_spin_button_new_with_range(1, 65535, 1);
+  gtk_spin_button_set_value(GTK_SPIN_BUTTON(w->spin_acia_port), w->cfg.acia_tcp_port);
+  gtk_box_append(GTK_BOX(connection_settings), w->spin_acia_port);
+  GtkWidget *connect = gtk_button_new_with_label("Connect / Listen");
+  g_signal_connect(connect, "clicked", G_CALLBACK(acia_connect_clicked), w);
+  gtk_box_append(GTK_BOX(connection_settings), connect);
+  w->btn_acia_disconnect = gtk_button_new_with_label("Force Disconnect");
+  g_signal_connect(w->btn_acia_disconnect, "clicked", G_CALLBACK(acia_force_disconnect_clicked), w);
+  gtk_widget_set_tooltip_text(w->btn_acia_disconnect,
+      "Drop the TCP client but keep listening, or close and release the physical serial device.");
+  gtk_box_append(GTK_BOX(vbox), w->btn_acia_disconnect);
 
   return frame;
 }
@@ -1783,6 +1855,49 @@ static void install_css(void) {
 /* ---------------------------------------------------------------------------
  * UI update (called from GLib timer, main thread)
  * ------------------------------------------------------------------------- */
+/* ACIA status must refresh independently of expensive VIA/disassembly work.
+ * Take a coherent snapshot under the simulator lock, then update GTK unlocked. */
+static void update_acia_panel(sim_win_t *w) {
+  if (!w->lbl_acia_conn)
+    return;
+  acia_t snapshot;
+  pthread_mutex_lock(&w->sim.state_lock);
+  snapshot = w->sim.acia;
+  pthread_mutex_unlock(&w->sim.state_lock);
+
+  char acia_cfg[32];
+  acia_format_settings(&snapshot, acia_cfg, sizeof(acia_cfg));
+  gtk_label_set_text(GTK_LABEL(w->lbl_acia_settings), acia_cfg);
+
+  /* Cycles per bit + bytes/sec display */
+  char cpb_str[32];
+  acia_format_timing(&snapshot, cpb_str, sizeof(cpb_str));
+  gtk_label_set_text(GTK_LABEL(w->lbl_acia_cpb), cpb_str);
+  if (w->lbl_acia_transport) {
+    char label[560];
+    if (snapshot.transport == ACIA_TRANSPORT_SERIAL)
+      snprintf(label, sizeof(label), "Serial: %s", snapshot.serial_path);
+    else snprintf(label, sizeof(label), "TCP :%d", snapshot.tcp_port);
+    gtk_label_set_text(GTK_LABEL(w->lbl_acia_transport), label);
+  }
+  gtk_widget_set_tooltip_text(w->lbl_acia_conn,
+      snapshot.transport_error[0] ? snapshot.transport_error :
+      snapshot.transport == ACIA_TRANSPORT_SERIAL ?
+        "Connected means the OS serial device is open; it does not prove a remote peer is attached." :
+        "TCP client connection state");
+  if (w->btn_acia_disconnect)
+    gtk_widget_set_sensitive(w->btn_acia_disconnect, acia_connected(&snapshot));
+  if (acia_connected(&snapshot)) {
+    gtk_label_set_text(GTK_LABEL(w->lbl_acia_conn), "Connected");
+    gtk_widget_remove_css_class(w->lbl_acia_conn, "acia-disc");
+    gtk_widget_add_css_class(w->lbl_acia_conn, "acia-conn");
+  } else {
+    gtk_label_set_text(GTK_LABEL(w->lbl_acia_conn), "Disconnected");
+    gtk_widget_remove_css_class(w->lbl_acia_conn, "acia-conn");
+    gtk_widget_add_css_class(w->lbl_acia_conn, "acia-disc");
+  }
+}
+
 gboolean sim_win_update(gpointer ud) {
   sim_win_t *w = (sim_win_t *)ud;
 
@@ -1940,7 +2055,7 @@ gboolean sim_win_update(gpointer ud) {
 
   } /* end full_update disassembly */
 
-  /* --- VIA + ACIA panels (skip when running at speed) --- */
+  /* --- VIA panels (skip when running at speed) --- */
   if (full_update) {
   pthread_mutex_lock(&w->sim.state_lock);
   for (int vi = 0; vi < 2; vi++) {
@@ -2000,25 +2115,6 @@ gboolean sim_win_update(gpointer ud) {
     gtk_label_set_text(GTK_LABEL(vu->ifr_lbl), ifr_str);
   }
 
-  /* --- ACIA panel --- */
-  char acia_cfg[32];
-  acia_format_settings(&w->sim.acia, acia_cfg, sizeof(acia_cfg));
-  gtk_label_set_text(GTK_LABEL(w->lbl_acia_settings), acia_cfg);
-
-  /* Cycles per bit + bytes/sec display */
-  char cpb_str[32];
-  acia_format_timing(&w->sim.acia, cpb_str, sizeof(cpb_str));
-  gtk_label_set_text(GTK_LABEL(w->lbl_acia_cpb), cpb_str);
-  pthread_mutex_unlock(&w->sim.state_lock);
-  if (acia_connected(&w->sim.acia)) {
-    gtk_label_set_text(GTK_LABEL(w->lbl_acia_conn), "Connected");
-    gtk_widget_remove_css_class(w->lbl_acia_conn, "acia-disc");
-    gtk_widget_add_css_class(w->lbl_acia_conn, "acia-conn");
-  } else {
-    gtk_label_set_text(GTK_LABEL(w->lbl_acia_conn), "Disconnected");
-    gtk_widget_remove_css_class(w->lbl_acia_conn, "acia-conn");
-    gtk_widget_add_css_class(w->lbl_acia_conn, "acia-disc");
-  }
   /* Update VIA snapshots after drawing so next tick detects new changes */
   for (int vi = 0; vi < 2; vi++) {
     if (!w->sim.via_enable[vi]) continue;
@@ -2031,7 +2127,10 @@ gboolean sim_win_update(gpointer ud) {
     w->via_snap[vi].t2c    = v->T2C;
     w->via_snap[vi].ifr    = v->IFR;
   }
-  } /* end full_update VIA+ACIA */
+  pthread_mutex_unlock(&w->sim.state_lock);
+  } /* end full_update VIA */
+
+  update_acia_panel(w);
 
   /* Update LCD panel */
   lcd_ui_update(w);
