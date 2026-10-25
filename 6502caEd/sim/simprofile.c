@@ -252,6 +252,26 @@ bool simprofile_load(simprofile_t *p, const char *path) {
         else if (strcmp(section, "sd") == 0) {
             if      (!strcmp(key, "enabled"))  p->sd.enabled = parse_bool(val);
             else if (!strcmp(key, "strict"))   p->sd.strict  = parse_bool(val);
+            else if (!strcmp(key, "read_us")) {
+                char *end; unsigned long n = strtoul(val, &end, 10);
+                if (*val && !*end && val[0] != '-' && n <= 1000000UL)
+                    p->sd.timing.read_us = (uint32_t)n;
+            }
+            else if (!strcmp(key, "write_us")) {
+                char *end; unsigned long n = strtoul(val, &end, 10);
+                if (*val && !*end && val[0] != '-' && n <= 1000000UL)
+                    p->sd.timing.write_us = (uint32_t)n;
+            }
+            else if (!strcmp(key, "erase_us")) {
+                char *end; unsigned long n = strtoul(val, &end, 10);
+                if (*val && !*end && val[0] != '-' && n <= 10000000UL)
+                    p->sd.timing.erase_us = (uint32_t)n;
+            }
+            else if (!strcmp(key, "max_spi_hz")) {
+                char *end; unsigned long n = strtoul(val, &end, 10);
+                if (*val && !*end && val[0] != '-' && n <= 25000000UL)
+                    p->sd.timing.max_spi_hz = (uint32_t)n;
+            }
             else if (!strcmp(key, "card_type")) {
                 if (!strcasecmp(val, "sdsc"))      p->sd.card_mode = SD_CARD_SDSC;
                 else if (!strcasecmp(val, "sdhc")) p->sd.card_mode = SD_CARD_SDHC;
@@ -380,6 +400,10 @@ bool simprofile_save_as(simprofile_t *p, const char *path) {
     fprintf(f, "\n[sd]\n");
     fprintf(f, "enabled    = %d\n", p->sd.enabled ? 1 : 0);
     fprintf(f, "strict     = %d\n", p->sd.strict  ? 1 : 0);
+    fprintf(f, "read_us = %lu\n", (unsigned long)p->sd.timing.read_us);
+    fprintf(f, "write_us = %lu\n", (unsigned long)p->sd.timing.write_us);
+    fprintf(f, "erase_us = %lu\n", (unsigned long)p->sd.timing.erase_us);
+    fprintf(f, "max_spi_hz = %lu\n", (unsigned long)p->sd.timing.max_spi_hz);
     fprintf(f, "card_type  = %s\n",
             p->sd.card_mode == SD_CARD_SDSC ? "sdsc" :
             p->sd.card_mode == SD_CARD_SDHC ? "sdhc" : "auto");

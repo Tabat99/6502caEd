@@ -5,6 +5,7 @@
  * Saved in the .simprofile [sd] section.
  */
 #include <stdint.h>
+#include "sd.h"
 #include <stdbool.h>
 
 /* Reuse the lcd_pin_t concept — one pin = VIA + port + bit */
@@ -61,6 +62,7 @@ typedef struct {
     /* Strict timing enforcement */
     bool        strict;         /* true = enforce SPI/SD timing */
 
+    sd_timing_t timing;
     sd_card_mode_t card_mode;    /* auto/sdsc/sdhc address mode override */
 
 } spi_cfg_t;

@@ -14,12 +14,12 @@
  *   ACMD13, ACMD22, ACMD23, ACMD41, ACMD51
  *
  * Timing (strict mode):
- *   NCR  = 1-8 bytes (we use 1 byte = 8 cycles) after command before response
- *   NBR  = 1 byte before data token
- *   NWR  = 1 byte minimum write busy after block accepted
- *   Busy = DO held low during write processing (~250ms real, we use 10ms)
+ *   Command responses retain their byte-based delay.
+ *   Memory reads, write/erase busy and SPI ceilings use configurable
+ *   simulated-cycle deadlines; see SD-TIMING.md.
  */
 #include "sd.h"
+static uint64_t timing_cycles(const sd_t *sd, uint32_t us);
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -33,6 +33,7 @@ static bool image_seek(FILE *fp, uint64_t offset) {
     return fseeko(fp, (off_t)offset, SEEK_SET) == 0;
 #endif
 }
+
 
 static uint32_t transfer_len(const sd_t *sd) {
     return sd->is_sdhc ? SD_BLOCK_SIZE : sd->block_len;
@@ -388,6 +389,7 @@ static void execute_cmd(sd_t *sd) {
         resp_push(sd, 0xFF);
         resp_push(sd, SD_R1_READY);
         resp_push(sd, SD_TOKEN_START);
+        sd->read_ready = sd->cpu_cycles + timing_cycles(sd, sd->timing.read_us);
         /* Use RESPONSE state to send NCR+R1+token first,
          * then transition to DATA_READ when resp[] is exhausted */
         sd->state = SD_STATE_RESPONSE;
@@ -453,7 +455,7 @@ static void execute_cmd(sd_t *sd) {
             if (ok && sd->strict) {
                 sd->pending_data_state = SD_STATE_BUSY;
                 sd->busy_next_state = SD_STATE_IDLE;
-                sd->busy_until = sd->cpu_cycles + sd->cpu_hz / 100;
+                sd->busy_until = sd->cpu_cycles + timing_cycles(sd, sd->timing.erase_us);
             }
         }
         sd->erase_start_valid = sd->erase_end_valid = false;
@@ -492,9 +494,23 @@ static void execute_cmd(sd_t *sd) {
  * Public API
  * ---------------------------------------------------------------------- */
 
+static uint64_t timing_cycles(const sd_t *sd, uint32_t us) {
+    return (sd->cpu_hz / 1000000) * us +
+           ((sd->cpu_hz % 1000000) * us + 999999) / 1000000;
+}
+
+void sd_set_timing(sd_t *sd, const sd_timing_t *timing) {
+    sd->timing = *timing;
+    if (sd->timing.read_us > 1000000) sd->timing.read_us = 1000000;
+    if (sd->timing.write_us > 1000000) sd->timing.write_us = 1000000;
+    if (sd->timing.erase_us > 10000000) sd->timing.erase_us = 10000000;
+    if (sd->timing.max_spi_hz > 25000000) sd->timing.max_spi_hz = 25000000;
+}
+
 void sd_init(sd_t *sd, uint64_t cpu_hz, bool strict) {
     memset(sd, 0, sizeof(*sd));
     sd->cpu_hz = cpu_hz > 0 ? cpu_hz : 1000000;
+    sd->timing = (sd_timing_t)SD_TIMING_DEFAULTS;
     sd->strict = strict;
     sd->miso_byte = 0xFF;
     sd->miso_bit  = 7;
@@ -506,6 +522,8 @@ void sd_init(sd_t *sd, uint64_t cpu_hz, bool strict) {
 }
 
 void sd_reset(sd_t *sd) {
+    sd_timing_t timing = sd->timing;
+    uint64_t violations = sd->clock_violations;
     bool enabled = sd->enabled;
     bool strict = sd->strict;
     uint64_t hz = sd->cpu_hz;
@@ -521,6 +539,8 @@ void sd_reset(sd_t *sd) {
     memcpy(cid, sd->cid, 16);
 
     memset(sd, 0, sizeof(*sd));
+    sd->timing = timing;
+    sd->clock_violations = violations;
     sd->enabled = enabled;
     sd->strict = strict;
     sd->cpu_hz = hz;
@@ -638,10 +658,26 @@ int sd_miso(const sd_t *sd) {
 
 /* Load next byte to send on MISO */
 static void load_next_miso(sd_t *sd) {
+    if (sd->read_waiting) {
+        if (sd->strict && sd->cpu_cycles < sd->read_ready) {
+            sd->miso_byte = 0xFF;
+        } else {
+            sd->read_waiting = false;
+            sd->miso_byte = SD_TOKEN_START;
+        }
+        sd->miso_bit = 7;
+        return;
+    }
     switch (sd->state) {
     case SD_STATE_RESPONSE:
         if (sd->resp_pos < sd->resp_len) {
-            sd->miso_byte = sd->resp[sd->resp_pos++];
+            bool data_token = sd->pending_data_state == SD_STATE_DATA_READ &&
+                sd->resp_pos == sd->resp_len - 1 &&
+                sd->resp[sd->resp_pos] == SD_TOKEN_START;
+            if (data_token && sd->strict && sd->cpu_cycles < sd->read_ready)
+                sd->miso_byte = 0xFF;
+            else
+                sd->miso_byte = sd->resp[sd->resp_pos++];
         } else if (sd->pending_data_state != SD_STATE_IDLE) {
             /* Transition to next phase */
             sd->state = sd->pending_data_state;
@@ -670,7 +706,9 @@ static void load_next_miso(sd_t *sd) {
         } else if (sd->multi_read) {
             sd->byte_addr += transfer_len(sd);
             if (read_block(sd)) {
-                sd->miso_byte = SD_TOKEN_START;
+                sd->read_ready = sd->cpu_cycles + timing_cycles(sd, sd->timing.read_us);
+                sd->read_waiting = sd->strict && sd->timing.read_us != 0;
+                sd->miso_byte = sd->read_waiting ? 0xFF : SD_TOKEN_START;
             } else {
                 sd->miso_byte = 0x08; /* data error: out of range/read failure */
                 sd->multi_read = false;
@@ -712,6 +750,7 @@ int sd_update(sd_t *sd, bool cs, bool sck, bool mosi) {
 
     /* CS rising — deselect, reset bit counter */
     if (cs_rise) {
+        sd->have_sck = sd->clock_fault = sd->read_waiting = false;
 
         sd->bit_count = 0;
         sd->shift_in  = 0;
@@ -737,6 +776,21 @@ int sd_update(sd_t *sd, bool cs, bool sck, bool mosi) {
 
     /* Card deselected — MISO high */
     if (cs) return 1;
+
+    /* Over-speed transfers fail until CS is released. No wall-clock sleeps. */
+    if (sck_rise) {
+        uint32_t limit = sd->timing.max_spi_hz;
+        if (!sd->initialised && limit > 400000) limit = 400000;
+        if (sd->strict && limit && sd->have_sck &&
+            sd->cpu_cycles - sd->last_sck_cycle <
+                (sd->cpu_hz + limit - 1) / limit) {
+            if (!sd->clock_fault) sd->clock_violations++;
+            sd->clock_fault = true;
+        }
+        sd->last_sck_cycle = sd->cpu_cycles;
+        sd->have_sck = true;
+    }
+    if (sd->clock_fault) return 1;
 
     /* CS just selected — reset for new transaction */
     if (cs_fall) {
@@ -843,7 +897,7 @@ int sd_update(sd_t *sd, bool cs, bool sck, bool mosi) {
                     if (written && sd->strict) {
                         sd->pending_data_state = SD_STATE_BUSY;
                         sd->busy_next_state = next;
-                        sd->busy_until = sd->cpu_cycles + sd->cpu_hz / 100;
+                        sd->busy_until = sd->cpu_cycles + timing_cycles(sd, sd->timing.write_us);
                     }
                     sd->state = SD_STATE_RESPONSE;
                     load_next_miso(sd);
@@ -869,4 +923,139 @@ int sd_update(sd_t *sd, bool cs, bool sck, bool mosi) {
     }
 
     return sd_miso(sd);
+}
+
+/* New-image formatter: two FATs, 512-byte sectors, superfloppy layout. */
+typedef struct {
+    uint32_t total, fat, clusters, data;
+    uint16_t reserved, roots;
+    uint8_t spc;
+} image_layout_t;
+
+static bool image_layout(uint64_t bytes, sd_image_format_t fmt, image_layout_t *l) {
+    if (bytes < 512 || bytes % 512 || bytes / 512 > UINT32_MAX) return false;
+    memset(l, 0, sizeof(*l));
+    l->total = (uint32_t)(bytes / 512);
+    if (fmt == SD_IMAGE_RAW) return true;
+    if (fmt < SD_IMAGE_FAT12 || fmt > SD_IMAGE_FAT32) return false;
+    unsigned bits = fmt == SD_IMAGE_FAT12 ? 12 : fmt == SD_IMAGE_FAT16 ? 16 : 32;
+    unsigned first_spc = 1;
+    if (bits == 32) {
+        if (bytes >= 32ULL * 1024 * 1024 * 1024) first_spc = 64;
+        else if (bytes >= 8ULL * 1024 * 1024 * 1024) first_spc = 16;
+        else if (bytes >= 1024ULL * 1024 * 1024) first_spc = 8;
+    }
+    for (unsigned spc = first_spc; spc <= 64; spc *= 2) {
+        uint32_t reserved = bits == 32 ? 32 : 1;
+        uint32_t roots = bits == 32 ? 0 : (bits == 12 ? 224 : 512);
+        uint32_t rootsecs = (roots * 32 + 511) / 512;
+        uint32_t fat = 1, clusters = 0;
+        /* FAT size only grows, so this converges without oscillation. */
+        for (int iter = 0; iter < 32; iter++) {
+            uint64_t overhead = reserved + 2ULL * fat + rootsecs;
+            if (overhead >= l->total) break;
+            clusters = (uint32_t)((l->total - overhead) / spc);
+            uint32_t needed = (uint32_t)(((uint64_t)(clusters + 2) * bits + 4095) / 4096);
+            if (needed <= fat) break;
+            fat = needed;
+        }
+        if (bits == 16 && spc == 64 && clusters > 65518 && clusters < 66000) {
+            reserved += (clusters - 65518) * spc;
+            clusters = (l->total - reserved - 2 * fat - rootsecs) / spc;
+        }
+        bool valid = bits == 12 ? clusters >= 16 && clusters < 4085 :
+                     bits == 16 ? clusters >= 4085 && clusters <= 65518 :
+                                  clusters >= 65525 && clusters <= 0x0ffffff5;
+        if (!valid || reserved > 65535 || (bits != 32 && fat > 65535)) continue;
+        l->reserved = (uint16_t)reserved; l->roots = (uint16_t)roots;
+        l->fat = fat; l->clusters = clusters; l->spc = (uint8_t)spc;
+        l->data = reserved + 2 * fat + rootsecs;
+        return true;
+    }
+    return false;
+}
+
+bool sd_image_format_supported(uint64_t bytes, sd_image_format_t fmt) {
+    image_layout_t l;
+    return image_layout(bytes, fmt, &l);
+}
+
+static void image_le16(uint8_t *b, unsigned o, uint16_t v) {
+    b[o] = (uint8_t)v; b[o+1] = (uint8_t)(v >> 8);
+}
+static void image_le32(uint8_t *b, unsigned o, uint32_t v) {
+    image_le16(b, o, (uint16_t)v); image_le16(b, o+2, (uint16_t)(v >> 16));
+}
+static bool image_sector(FILE *f, uint32_t sector, const uint8_t *b) {
+    return image_seek(f, (uint64_t)sector * 512) && fwrite(b, 1, 512, f) == 512;
+}
+
+bool sd_create_formatted(const char *path, uint64_t bytes,
+                         sd_image_format_t fmt, const char *label) {
+    image_layout_t l;
+    if (!path || !*path || !image_layout(bytes, fmt, &l)) return false;
+    char vol[11]; memset(vol, ' ', sizeof(vol));
+    if (!label || !*label) label = "NO NAME";
+    size_t len = strlen(label);
+    if (len > 11) return false;
+    for (size_t i = 0; i < len; ++i) {
+        unsigned char c = (unsigned char)label[i];
+        if (c < 32 || c > 126 || strchr("\"*+,./:;<=>?[\\]|", c)) return false;
+        vol[i] = (char)(c >= 'a' && c <= 'z' ? c - 'a' + 'A' : c);
+    }
+    /* Exclusive create: never truncate an existing image or attached card. */
+    FILE *f = fopen(path, "wbx");
+    if (!f) return false;
+    bool ok = true;
+    uint8_t b[512] = {0};
+    if (fmt == SD_IMAGE_RAW) {
+        memset(b, 255, sizeof(b));
+        for (uint64_t left = bytes; ok && left; left -= 512)
+            ok = fwrite(b, 1, 512, f) == 512;
+    } else {
+        /* Extending a new file yields zero-filled unused sectors. */
+        ok = image_seek(f, bytes - 1) && fputc(0, f) != EOF;
+        b[0] = 0xeb; b[1] = fmt == SD_IMAGE_FAT32 ? 0x58 : 0x3c; b[2] = 0x90;
+        memcpy(b+3, "6502caEd", 8); image_le16(b,11,512); b[13]=l.spc;
+        image_le16(b,14,l.reserved); b[16]=2; image_le16(b,17,l.roots);
+        image_le16(b,19,l.total < 65536 ? (uint16_t)l.total : 0); b[21]=0xf8;
+        image_le16(b,22,fmt == SD_IMAGE_FAT32 ? 0 : (uint16_t)l.fat);
+        image_le16(b,24,32); image_le16(b,26,64);
+        image_le32(b,32,l.total >= 65536 ? l.total : 0);
+        unsigned ext = fmt == SD_IMAGE_FAT32 ? 64 : 36;
+        b[ext]=0x80; b[ext+2]=0x29; image_le32(b,ext+3,0x6502caed);
+        memcpy(b+ext+7,vol,11);
+        memcpy(b+ext+18,fmt == SD_IMAGE_FAT12 ? "FAT12   " :
+                             fmt == SD_IMAGE_FAT16 ? "FAT16   " : "FAT32   ",8);
+        if (fmt == SD_IMAGE_FAT32) {
+            image_le32(b,36,l.fat); image_le32(b,44,2);
+            image_le16(b,48,1); image_le16(b,50,6);
+        }
+        /* Valid non-bootable stub: interrupts off, halt, loop. */
+        b[ext+26]=0xfa; b[ext+27]=0xf4; b[ext+28]=0xeb; b[ext+29]=0xfd;
+        b[510]=0x55; b[511]=0xaa;
+        ok = ok && image_sector(f,0,b);
+        if (fmt == SD_IMAGE_FAT32) {
+            ok = ok && image_sector(f,6,b);
+            memset(b,0,512); image_le32(b,0,0x41615252);
+            image_le32(b,484,0x61417272); image_le32(b,488,l.clusters-1);
+            image_le32(b,492,3); image_le32(b,508,0xaa550000);
+            ok = ok && image_sector(f,1,b) && image_sector(f,7,b);
+        }
+        memset(b,0,512);
+        if (fmt == SD_IMAGE_FAT12) { b[0]=0xf8; b[1]=b[2]=0xff; }
+        else if (fmt == SD_IMAGE_FAT16) {
+            image_le16(b,0,0xfff8); image_le16(b,2,0xffff);
+        } else {
+            image_le32(b,0,0x0ffffff8); image_le32(b,4,0xffffffff);
+            image_le32(b,8,0x0fffffff); /* allocated root cluster */
+        }
+        ok = ok && image_sector(f,l.reserved,b) && image_sector(f,l.reserved+l.fat,b);
+        memset(b,0,512); memcpy(b,vol,11); b[11]=8;
+        uint32_t root = fmt == SD_IMAGE_FAT32 ? l.data : l.reserved+2*l.fat;
+        ok = ok && image_sector(f,root,b);
+    }
+    if (fclose(f) != 0) ok = false;
+    if (!ok) remove(path);
+    return ok;
 }

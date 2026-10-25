@@ -266,8 +266,31 @@ typedef struct {
     struct sim_win_t *w;
     GtkWidget *entry_path;
     GtkWidget *dd_size;
+    GtkWidget *dd_format;
+    GtkWidget *entry_label;
+    GtkWidget *lbl_format;
+    GtkWidget *btn_ok;
     GtkWidget *dialog;
 } CreateCtx;
+
+static void create_selection_changed(GObject *object, GParamSpec *pspec, gpointer ud) {
+    (void)object; (void)pspec;
+    CreateCtx *ctx = ud;
+    guint size = gtk_drop_down_get_selected(GTK_DROP_DOWN(ctx->dd_size));
+    guint fmt = gtk_drop_down_get_selected(GTK_DROP_DOWN(ctx->dd_format));
+    bool valid = size < SD_SIZE_COUNT && fmt <= SD_IMAGE_FAT32 &&
+        sd_image_format_supported(sd_size_bytes((sd_size_id_t)size), (sd_image_format_t)fmt);
+    uint64_t bytes = size < SD_SIZE_COUNT ? sd_size_bytes((sd_size_id_t)size) : 0;
+    bool card_ok = !(ctx->w->sd_ui.cfg.card_mode == SD_CARD_SDSC && bytes > 2ULL*1024*1024*1024) &&
+                   !(ctx->w->sd_ui.cfg.card_mode == SD_CARD_SDHC && bytes % (512*1024));
+    const char *message = !card_ok ? "Size is incompatible with the configured card type." :
+        !valid ? "Choose another size for this filesystem." :
+        fmt == SD_IMAGE_RAW ? "Blank raw sectors; no filesystem." :
+        "Empty formatted volume; no partition table. Existing files are never overwritten.";
+    gtk_label_set_text(GTK_LABEL(ctx->lbl_format), message);
+    gtk_widget_set_sensitive(ctx->entry_label, fmt != SD_IMAGE_RAW);
+    gtk_widget_set_sensitive(ctx->btn_ok, valid && card_ok);
+}
 
 static void create_ok_cb(GtkButton *btn, gpointer ud) {
     (void)btn;
@@ -285,15 +308,24 @@ static void create_ok_cb(GtkButton *btn, gpointer ud) {
         g_object_unref(ad);
         return;
     }
-    if (!sd_create(path, sz)) {
+    guint fmt = gtk_drop_down_get_selected(GTK_DROP_DOWN(ctx->dd_format));
+    const char *label = gtk_entry_buffer_get_text(
+        gtk_entry_get_buffer(GTK_ENTRY(ctx->entry_label)));
+    if (!sd_create_formatted(path, sz, (sd_image_format_t)fmt,
+                              fmt == SD_IMAGE_RAW ? "NO NAME" : label)) {
         GtkAlertDialog *ad = gtk_alert_dialog_new(
-            "Failed to create image:\n%s\n\nCheck path and available disk space.", path);
+            "Failed to create image:\n%s\n\nUse a new filename, a compatible size, and a volume label of at most 11 ASCII characters without punctuation such as / : * ?. Check disk space and folder permissions.", path);
         gtk_alert_dialog_show(ad, GTK_WINDOW(w->window));
         g_object_unref(ad);
         return;
     }
     if (sd_open(&w->sd_ui.sd, path)) {
         update_status_label(w);
+    } else {
+        GtkAlertDialog *ad = gtk_alert_dialog_new(
+            "Image was created, but could not be attached:\n%s\n\nCheck the selected card type and image permissions.", path);
+        gtk_alert_dialog_show(ad, GTK_WINDOW(w->window));
+        g_object_unref(ad);
     }
     gtk_window_close(GTK_WINDOW(ctx->dialog));
 }
@@ -339,6 +371,20 @@ static void on_create_clicked(GtkButton *btn, gpointer ud) {
     ctx->dd_size = dd;
     gtk_box_append(GTK_BOX(vbox), dd);
 
+    gtk_box_append(GTK_BOX(vbox), gtk_label_new("Format:"));
+    const char *format_names[] = {"Raw image", "FAT12", "FAT16", "FAT32", NULL};
+    ctx->dd_format = gtk_drop_down_new_from_strings(format_names);
+    gtk_drop_down_set_selected(GTK_DROP_DOWN(ctx->dd_format), SD_IMAGE_FAT16);
+    gtk_box_append(GTK_BOX(vbox), ctx->dd_format);
+    gtk_box_append(GTK_BOX(vbox), gtk_label_new("Volume label (up to 11 characters):"));
+    ctx->entry_label = gtk_entry_new();
+    gtk_entry_set_max_length(GTK_ENTRY(ctx->entry_label), 11);
+    gtk_entry_buffer_set_text(gtk_entry_get_buffer(GTK_ENTRY(ctx->entry_label)), "6502CAED", -1);
+    gtk_box_append(GTK_BOX(vbox), ctx->entry_label);
+    ctx->lbl_format = gtk_label_new("");
+    gtk_label_set_wrap(GTK_LABEL(ctx->lbl_format), TRUE);
+    gtk_box_append(GTK_BOX(vbox), ctx->lbl_format);
+
     /* Warning */
     GtkWidget *warn = gtk_label_new(
         "⚠ Large images (≥1GB) may take a while to create.");
@@ -351,6 +397,10 @@ static void on_create_clicked(GtkButton *btn, gpointer ud) {
     GtkWidget *btn_cancel = gtk_button_new_with_label("Cancel");
     GtkWidget *btn_ok     = gtk_button_new_with_label("Create & Attach");
     gtk_widget_add_css_class(btn_ok, "suggested-action");
+    ctx->btn_ok = btn_ok;
+    g_signal_connect(ctx->dd_size, "notify::selected", G_CALLBACK(create_selection_changed), ctx);
+    g_signal_connect(ctx->dd_format, "notify::selected", G_CALLBACK(create_selection_changed), ctx);
+    create_selection_changed(NULL, NULL, ctx);
     g_signal_connect_swapped(btn_cancel, "clicked",
                              G_CALLBACK(gtk_window_close), dlg);
     g_signal_connect(btn_ok, "clicked", G_CALLBACK(create_ok_cb), ctx);
@@ -399,6 +449,42 @@ static void on_duplicate_clicked(GtkButton *btn, gpointer ud) {
     g_object_unref(dlg);
 }
 
+static void timing_sync_widgets(struct sim_win_t *w) {
+    sd_ui_t *ui = &w->sd_ui;
+    const sd_timing_t *t = &ui->cfg.timing;
+    double values[] = {t->read_us, t->write_us, t->erase_us, t->max_spi_hz};
+    ui->timing_sync = true;
+    for (int i = 0; i < 4; ++i)
+        if (ui->timing_spin[i])
+            gtk_spin_button_set_value(GTK_SPIN_BUTTON(ui->timing_spin[i]), values[i]);
+    ui->timing_sync = false;
+}
+
+static void timing_changed(GtkSpinButton *spin, gpointer ud) {
+    (void)spin;
+    struct sim_win_t *w = ud;
+    sd_ui_t *ui = &w->sd_ui;
+    if (ui->timing_sync) return;
+    sd_timing_t t = {
+        (uint32_t)gtk_spin_button_get_value(GTK_SPIN_BUTTON(ui->timing_spin[0])),
+        (uint32_t)gtk_spin_button_get_value(GTK_SPIN_BUTTON(ui->timing_spin[1])),
+        (uint32_t)gtk_spin_button_get_value(GTK_SPIN_BUTTON(ui->timing_spin[2])),
+        (uint32_t)gtk_spin_button_get_value(GTK_SPIN_BUTTON(ui->timing_spin[3]))
+    };
+    sd_set_timing(&ui->sd, &t);
+    ui->cfg.timing = ui->sd.timing;
+    w->profile.sd.timing = ui->cfg.timing;
+}
+
+static void timing_defaults(GtkButton *button, gpointer ud) {
+    (void)button;
+    struct sim_win_t *w = ud;
+    w->sd_ui.cfg.timing = (sd_timing_t)SD_TIMING_DEFAULTS;
+    sd_set_timing(&w->sd_ui.sd, &w->sd_ui.cfg.timing);
+    w->profile.sd.timing = w->sd_ui.cfg.timing;
+    timing_sync_widgets(w);
+}
+
 static void on_strict_toggled(GtkCheckButton *chk, gpointer ud) {
     struct sim_win_t *w = (struct sim_win_t *)ud;
     bool strict = gtk_check_button_get_active(chk);
@@ -431,6 +517,33 @@ GtkWidget *sd_ui_create(struct sim_win_t *w) {
     ui->btn_strict = chk_strict;
 
     gtk_box_append(GTK_BOX(panel), hdr);
+
+    GtkWidget *expander = gtk_expander_new("Card timing");
+    GtkWidget *grid = gtk_grid_new();
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 4);
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
+    const char *labels[] = {"Read latency (µs)", "Write busy (µs)",
+                            "Erase busy (µs)", "Maximum SPI (Hz; 0 disables limit)"};
+    double limits[] = {1000000, 1000000, 10000000, 25000000};
+    for (int i = 0; i < 4; ++i) {
+        gtk_grid_attach(GTK_GRID(grid), gtk_label_new(labels[i]), 0, i, 1, 1);
+        ui->timing_spin[i] = gtk_spin_button_new_with_range(0, limits[i], 1);
+        gtk_grid_attach(GTK_GRID(grid), ui->timing_spin[i], 1, i, 1, 1);
+    }
+    timing_sync_widgets(w);
+    for (int i = 0; i < 4; ++i)
+        g_signal_connect(ui->timing_spin[i], "value-changed", G_CALLBACK(timing_changed), w);
+    GtkWidget *defaults = gtk_button_new_with_label("Defaults");
+    g_signal_connect(defaults, "clicked", G_CALLBACK(timing_defaults), w);
+    gtk_grid_attach(GTK_GRID(grid), defaults, 1, 4, 1, 1);
+    ui->lbl_clock = gtk_label_new("SPI clock violations: 0");
+    gtk_grid_attach(GTK_GRID(grid), ui->lbl_clock, 0, 5, 2, 1);
+    gtk_widget_set_tooltip_text(expander,
+        "Representative presets, not measured card averages. Enforced with Strict timing. "
+        "Initialisation is limited to 400 kHz. Save through profile settings; "
+        "for embedded profiles also update the source. Change timing while stopped.");
+    gtk_expander_set_child(GTK_EXPANDER(expander), grid);
+    gtk_box_append(GTK_BOX(panel), expander);
 
     /* Status label */
     ui->lbl_status = gtk_label_new("No card inserted");
@@ -503,6 +616,13 @@ GtkWidget *sd_ui_create(struct sim_win_t *w) {
 void sd_ui_update(struct sim_win_t *w) {
     sd_ui_t *ui = &w->sd_ui;
     if (!ui->panel) return;
+    if (ui->lbl_clock) {
+        char text[96];
+        snprintf(text, sizeof(text), "SPI clock violations: %llu%s",
+            (unsigned long long)ui->sd.clock_violations,
+            ui->sd.clock_fault ? " (release CS or reset)" : "");
+        gtk_label_set_text(GTK_LABEL(ui->lbl_clock), text);
+    }
     int miso = sd_miso(&ui->sd);
     if (miso != ui->miso_last) {
         char buf[16];
@@ -518,6 +638,8 @@ void sd_ui_apply_cfg(struct sim_win_t *w, const spi_cfg_t *cfg) {
     g_strlcpy(mounted_path, ui->sd.image_path, sizeof mounted_path);
     int old_mode = ui->sd.card_mode;
     ui->cfg = *cfg;
+    sd_set_timing(&ui->sd, &cfg->timing);
+    timing_sync_widgets(w);
     ui->sd.strict = cfg->strict;
     ui->sd.enabled = cfg->enabled;
     ui->sd.card_mode = (int)cfg->card_mode;

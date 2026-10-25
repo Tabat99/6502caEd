@@ -39,6 +39,7 @@ void spi_cfg_defaults(spi_cfg_t *cfg) {
     cfg->enabled      = false;
     cfg->strict       = false;
     cfg->card_mode    = SD_CARD_AUTO;
+    cfg->timing = (sd_timing_t)SD_TIMING_DEFAULTS;
     /* Default: VIA1 port B — SCK=B0, MOSI=B1, MISO=B2, CS=B3 */
     cfg->sck.via  = 1; cfg->sck.port  = 1; cfg->sck.bit  = 0;
     cfg->mosi.via = 1; cfg->mosi.port = 1; cfg->mosi.bit = 1;

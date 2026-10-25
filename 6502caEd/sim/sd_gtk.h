@@ -27,6 +27,9 @@ typedef struct {
     GtkWidget  *btn_create;     /* Create new image */
     GtkWidget  *btn_duplicate;  /* Duplicate current image */
     GtkWidget  *btn_strict;     /* Strict timing checkbox */
+    GtkWidget *lbl_clock;
+    GtkWidget *timing_spin[4];
+    bool timing_sync;
     GtkWidget  *lbl_miso;       /* MISO indicator */
 
     /* Track last MISO state for display */

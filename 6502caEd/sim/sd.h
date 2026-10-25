@@ -1,4 +1,11 @@
 #pragma once
+#include <stdint.h>
+/* Representative simulation presets, independent of SDSC/SDHC capacity. */
+typedef struct {
+    uint32_t read_us, write_us, erase_us, max_spi_hz;
+} sd_timing_t;
+#define SD_TIMING_DEFAULTS {100, 2000, 10000, 25000000}
+
 /* sd.h — SD card SPI mode emulation
  *
  * Emulates an SD/SDHC card in SPI mode 0 (CPOL=0, CPHA=0).
@@ -63,6 +70,10 @@ typedef enum {
 typedef struct {
     /* Configuration */
     bool        enabled;
+    sd_timing_t timing;
+    uint64_t read_ready, last_sck_cycle;
+    bool read_waiting, have_sck, clock_fault;
+    uint64_t clock_violations;
     bool        strict;         /* enforce timing; CRC checking is controlled by CMD59 */
     bool        is_sdhc;        /* true if card is block addressed */
     int         card_mode;      /* 0=auto, 1=force SDSC, 2=force SDHC */
@@ -146,6 +157,7 @@ bool sd_create(const char *path, uint64_t size_bytes);
 
 /* Advance internal timers by one CPU cycle */
 void sd_tick(sd_t *sd);
+void sd_set_timing(sd_t *sd, const sd_timing_t *timing);
 
 /* Update cpu_hz (e.g. when simulator speed changes) */
 void sd_set_cpu_hz(sd_t *sd, uint64_t cpu_hz);
@@ -159,3 +171,12 @@ int sd_update(sd_t *sd, bool cs, bool sck, bool mosi);
 
 /* Read current MISO state without clocking */
 int sd_miso(const sd_t *sd);
+
+/* New blank filesystems use a superfloppy layout (no partition table).
+ * Creation is exclusive and refuses existing files. */
+typedef enum {
+    SD_IMAGE_RAW, SD_IMAGE_FAT12, SD_IMAGE_FAT16, SD_IMAGE_FAT32
+} sd_image_format_t;
+bool sd_image_format_supported(uint64_t bytes, sd_image_format_t format);
+bool sd_create_formatted(const char *path, uint64_t bytes,
+                         sd_image_format_t format, const char *label);
