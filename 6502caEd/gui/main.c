@@ -136,6 +136,7 @@ typedef struct AppState {
   char *status_last;
 
   char *path;
+  GFile *last_source_folder; /* session-only; shared by Open and Save As */
   gboolean dirty;
 
   // Highlight tags
@@ -6886,6 +6887,41 @@ static void apply_theme(AppState *s) {
 
 /* ---------------- file I/O ---------------- */
 
+/* Remember only completed source-file operations; cancelling a chooser
+ * leaves this session location untouched. GFile preserves drive/volume paths. */
+static void remember_source_folder(AppState *s, const char *path) {
+  if (!s || !path || !*path) return;
+  GFile *file = g_file_new_for_path(path);
+  GFile *parent = g_file_get_parent(file);
+  g_object_unref(file);
+  if (parent) {
+    g_clear_object(&s->last_source_folder);
+    s->last_source_folder = parent;
+  }
+}
+
+static void source_dialog_initial_folder(AppState *s, GtkFileDialog *dlg) {
+  GFile *folder = s->last_source_folder;
+  if (folder && g_file_query_file_type(folder, G_FILE_QUERY_INFO_NONE, NULL)
+                    == G_FILE_TYPE_DIRECTORY) {
+    gtk_file_dialog_set_initial_folder(dlg, folder);
+    return;
+  }
+  /* First use, or a removed/unmounted remembered directory: use the active
+   * document's directory if available, otherwise retain the chooser default. */
+  if (s->path && *s->path) {
+    GFile *file = g_file_new_for_path(s->path);
+    GFile *parent = g_file_get_parent(file);
+    if (parent && g_file_query_file_type(parent, G_FILE_QUERY_INFO_NONE, NULL)
+                      == G_FILE_TYPE_DIRECTORY)
+      gtk_file_dialog_set_initial_folder(dlg, parent);
+    g_clear_object(&parent);
+    g_object_unref(file);
+  }
+}
+
+
+
 static void update_title(AppState *s) { set_title(s); }
 
 static gboolean file_looks_binary(const guint8 *p, gsize n) {
@@ -6964,6 +7000,8 @@ static void load_file_into_doc(AppState *s, EditorDoc *d, const char *path) {
       g_error_free(err);
     return;
   }
+
+  remember_source_folder(s, path);
 
   /* Update doc path (keep per-doc; AppState mirrors active doc). */
   g_free(d->path);
@@ -7128,6 +7166,7 @@ static void save_finish_cb(GObject *source, GAsyncResult *res,
     g_free(path0);
 
     if (save_buffer_to_file(s, path, &err)) {
+      remember_source_folder(s, path);
       if (s->active_doc) {
         if (s->active_doc->path)
           g_free(s->active_doc->path);
@@ -10699,6 +10738,7 @@ static void action_open(GSimpleAction *a, GVariant *p, gpointer user_data) {
   AppState *s = (AppState *)user_data;
   GtkFileDialog *dlg = gtk_file_dialog_new();
   gtk_file_dialog_set_title(dlg, "Open Assembly File");
+  source_dialog_initial_folder(s, dlg);
   /* Filters: default to *.asm, but allow *.* */
   {
     GListStore *filters = g_list_store_new(GTK_TYPE_FILE_FILTER);
@@ -10725,6 +10765,12 @@ static void action_save_as(GSimpleAction *a, GVariant *p, gpointer user_data) {
   AppState *s = (AppState *)user_data;
   GtkFileDialog *dlg = gtk_file_dialog_new();
   gtk_file_dialog_set_title(dlg, "Save As");
+  source_dialog_initial_folder(s, dlg);
+  if (s->path && *s->path) {
+    char *name = g_path_get_basename(s->path);
+    gtk_file_dialog_set_initial_name(dlg, name);
+    g_free(name);
+  }
   /* Filters: default to *.asm, but allow *.* */
   {
     GListStore *filters = g_list_store_new(GTK_TYPE_FILE_FILTER);
@@ -15084,6 +15130,8 @@ static void about_show_notices(GtkButton *button, gpointer parent) {
   g_string_free(text, TRUE);
 }
 
+#include "about_tigger.h"
+
 static void action_about(GSimpleAction *a, GVariant *p, gpointer user_data) {
   (void)a;
   (void)p;
@@ -15098,7 +15146,7 @@ static void action_about(GSimpleAction *a, GVariant *p, gpointer user_data) {
   if (s->app)
     gtk_application_add_window(s->app, GTK_WINDOW(w));
   //  gtk_window_set_default_size(GTK_WINDOW(w), 520, 360);
-  gtk_window_set_default_size(GTK_WINDOW(w), 420, 260);
+  gtk_window_set_default_size(GTK_WINDOW(w), 480, 300);
 
   GtkWidget *outer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
   gtk_widget_set_margin_top(outer, 24);
@@ -15106,6 +15154,13 @@ static void action_about(GSimpleAction *a, GVariant *p, gpointer user_data) {
   gtk_widget_set_margin_start(outer, 24);
   gtk_widget_set_margin_end(outer, 24);
   gtk_window_set_child(GTK_WINDOW(w), outer);
+
+  /* Title spans the whole header; decorative artwork does not affect its
+   * horizontal allocation or centre point. */
+  GtkWidget *header = gtk_overlay_new();
+  gtk_widget_set_size_request(header, -1, 44);
+  gtk_widget_set_halign(header, GTK_ALIGN_FILL);
+  gtk_box_append(GTK_BOX(outer), header);
 
   GtkWidget *center = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
   gtk_widget_set_hexpand(center, TRUE);
@@ -15118,7 +15173,22 @@ static void action_about(GSimpleAction *a, GVariant *p, gpointer user_data) {
   gtk_label_set_selectable(GTK_LABEL(title), FALSE);
   gtk_widget_set_can_focus(title, FALSE);
   gtk_widget_add_css_class(title, "title-1");
-  gtk_box_append(GTK_BOX(center), title);
+  gtk_widget_set_hexpand(title, TRUE);
+  gtk_widget_set_halign(title, GTK_ALIGN_CENTER);
+  gtk_overlay_set_child(GTK_OVERLAY(header), title);
+
+  GdkTexture *cat_texture = about_tigger_texture();
+  GtkWidget *cat = gtk_picture_new_for_paintable(GDK_PAINTABLE(cat_texture));
+  g_object_unref(cat_texture);
+  gtk_picture_set_can_shrink(GTK_PICTURE(cat), FALSE);
+  gtk_widget_set_size_request(cat, 72, 37);
+  gtk_widget_set_halign(cat, GTK_ALIGN_END);
+  gtk_widget_set_valign(cat, GTK_ALIGN_START);
+  gtk_widget_set_tooltip_text(cat, "Tigger");
+  gtk_accessible_update_property(GTK_ACCESSIBLE(cat),
+      GTK_ACCESSIBLE_PROPERTY_LABEL, "Tigger, a sleeping tabby cat", -1);
+  gtk_overlay_add_overlay(GTK_OVERLAY(header), cat);
+  gtk_overlay_set_measure_overlay(GTK_OVERLAY(header), cat, FALSE);
 
   GtkWidget *desc = gtk_label_new("6502 assembler editor");
   gtk_box_append(GTK_BOX(center), desc);
@@ -15126,7 +15196,7 @@ static void action_about(GSimpleAction *a, GVariant *p, gpointer user_data) {
   GtkWidget *ver = gtk_label_new(AppVerString);
   gtk_box_append(GTK_BOX(center), ver);
 
-  GtkWidget *byyear = gtk_label_new("Copyright © 2026 MJD");
+  GtkWidget *byyear = gtk_label_new("© 2026 MJD");
   gtk_box_append(GTK_BOX(center), byyear);
 
   GtkWidget *legal = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
@@ -17344,45 +17414,46 @@ static char *capture_stdout_run(StdoutCaptureFn fn, void *ctx) {
   return g_string_free(out, FALSE);
 
 #else
-  int pfd[2];
-  if (pipe(pfd) != 0)
+  /* A pipe cannot be drained after fn(): a large listing fills it and
+   * blocks the writer on this same thread. Capture to a seekable file. */
+  FILE *capture = tmpfile();
+  if (!capture)
     return NULL;
 
   fflush(stdout);
   int saved = dup(STDOUT_FILENO);
   if (saved < 0) {
-    close(pfd[0]);
-    close(pfd[1]);
+    fclose(capture);
     return NULL;
   }
-
-  if (dup2(pfd[1], STDOUT_FILENO) < 0) {
+  if (dup2(fileno(capture), STDOUT_FILENO) < 0) {
     close(saved);
-    close(pfd[0]);
-    close(pfd[1]);
+    fclose(capture);
     return NULL;
   }
-
-  close(pfd[1]);
 
   fn(ctx);
   fflush(stdout);
 
-  dup2(saved, STDOUT_FILENO);
+  /* Restore stdout before reading or closing the temporary file. */
+  int restored = dup2(saved, STDOUT_FILENO);
   close(saved);
+  if (restored < 0 || fseek(capture, 0, SEEK_SET) != 0) {
+    fclose(capture);
+    return NULL;
+  }
 
   GString *out = g_string_new(NULL);
   char buf[4096];
-  for (;;) {
-    ssize_t n = read(pfd[0], buf, sizeof(buf));
-    if (n > 0) {
-      g_string_append_len(out, buf, (gsize)n);
-      continue;
-    }
-    break;
+  size_t n;
+  while ((n = fread(buf, 1, sizeof(buf), capture)) > 0)
+    g_string_append_len(out, buf, (gsize)n);
+  if (ferror(capture)) {
+    fclose(capture);
+    g_string_free(out, TRUE);
+    return NULL;
   }
-  close(pfd[0]);
-
+  fclose(capture);
   return g_string_free(out, FALSE);
 #endif
 }
@@ -21593,6 +21664,7 @@ int main(int argc, char **argv) {
   g_signal_connect(app, "activate", G_CALLBACK(on_activate), &st);
   int rc = g_application_run(G_APPLICATION(app), argc, argv);
 
+  g_clear_object(&st.last_source_folder);
   if (st.path)
     g_free(st.path);
   if (st.hl_idle_id)
