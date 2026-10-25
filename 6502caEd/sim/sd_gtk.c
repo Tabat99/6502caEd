@@ -514,12 +514,17 @@ void sd_ui_update(struct sim_win_t *w) {
 
 void sd_ui_apply_cfg(struct sim_win_t *w, const spi_cfg_t *cfg) {
     sd_ui_t *ui = &w->sd_ui;
+    char mounted_path[sizeof(ui->sd.image_path)];
+    g_strlcpy(mounted_path, ui->sd.image_path, sizeof mounted_path);
+    int old_mode = ui->sd.card_mode;
     ui->cfg = *cfg;
-    ui->sd.strict  = cfg->strict;
+    ui->sd.strict = cfg->strict;
     ui->sd.enabled = cfg->enabled;
     ui->sd.card_mode = (int)cfg->card_mode;
-    if (cfg->image_path[0] && !ui->sd.fp) {
-        sd_open(&ui->sd, cfg->image_path);
+    const char *path = cfg->image_path[0] ? cfg->image_path : mounted_path;
+    if (path[0] && (!ui->sd.fp || old_mode != ui->sd.card_mode ||
+                    strcmp(path, mounted_path) != 0)) {
+        sd_open(&ui->sd, path);
     }
     if (ui->btn_strict)
         gtk_check_button_set_active(GTK_CHECK_BUTTON(ui->btn_strict),

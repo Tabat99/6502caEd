@@ -8,10 +8,12 @@
  * Timing model:
  *   cpu_hz     — host CPU frequency (for strict timing)
  *   cpu_cycles — incremented by sd_tick() each CPU cycle
- *   strict     — when true, NCR/NBR delays are enforced
+ *   strict     — when true, power-up clock and write-busy timing is enforced
+ *   CRC checks — mandatory for CMD0/CMD8; CMD59 controls other command/data CRCs
  *
  * Card image:
- *   Backed by a file on disk. Block size is always 512 bytes.
+ *   Backed by a file on disk. SDSC transfers are 1..512 bytes;
+ *   SDHC memory transfers are always 512 bytes.
  *   Supports standard SD (≤2GB) and SDHC (>2GB, block-addressed).
  */
 #include <stdint.h>
@@ -61,7 +63,7 @@ typedef enum {
 typedef struct {
     /* Configuration */
     bool        enabled;
-    bool        strict;         /* enforce timing */
+    bool        strict;         /* enforce timing; CRC checking is controlled by CMD59 */
     bool        is_sdhc;        /* true if card is block addressed */
     int         card_mode;      /* 0=auto, 1=force SDSC, 2=force SDHC */
     uint64_t    capacity;       /* card size in bytes */
@@ -85,7 +87,7 @@ typedef struct {
     int         cmd_pos;        /* bytes received into cmd_buf */
 
     /* Response queue — up to 20 bytes */
-    uint8_t     resp[32];   /* 32 bytes: enough for R1+token+16-byte CSD/CID+CRC16 */
+    uint8_t     resp[96];   /* R1 + token + up to 64 bytes + CRC16 */
     int         resp_len;
     int         resp_pos;
 
@@ -93,12 +95,20 @@ typedef struct {
     sd_state_t  state;
     bool        app_cmd;        /* next cmd is ACMD (after CMD55) */
     bool        initialised;    /* card has completed init sequence */
+    bool        crc_enabled;    /* CMD59: command and write-data CRC checking */
+    uint8_t     status;         /* sticky second byte of CMD13 R2 */
+    uint64_t    erase_start, erase_end;
+    bool        erase_start_valid, erase_end_valid;
+    uint32_t    written_blocks; /* successful writes since CMD25/CMD24 */
 
     /* Block I/O */
-    uint32_t    block_addr;     /* current block address */
+    uint64_t    byte_addr;      /* exact current byte offset in the image */
     uint32_t    block_len;      /* logical block length from CMD16; defaults to 512 */
     uint8_t     block_buf[SD_BLOCK_SIZE + 2]; /* data + 2 CRC bytes */
     int         block_pos;      /* position within block_buf */
+    bool        multi_read;
+    bool        multi_write;
+    sd_state_t  busy_next_state; /* resume multi-write after the busy period */
 
     /* Timing */
     uint64_t    busy_until;     /* cpu_cycles when busy ends */
