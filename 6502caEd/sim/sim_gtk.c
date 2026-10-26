@@ -704,11 +704,13 @@ static void sim_apply_profile(sim_win_t *w, const simprofile_t *prof,
                rom_range_rd, rom_range_wr, &w->rom_ud[i], "ROM");
   }
 
-  /* VIA1 */
+  /* VIA1: mapping alone is not enough; the execution loop gates its clock. */
+  w->sim.via_enable[0] = p->via1.enabled;
   if (p->via1.enabled)
     mem_add_io(&w->sim.mem, p->via1.addr, 16, via1_rd, via1_wr, w, "VIA1");
 
-  /* VIA2 */
+  /* VIA2: also clear the clock gate when a profile disables the device. */
+  w->sim.via_enable[1] = p->via2.enabled;
   if (p->via2.enabled)
     mem_add_io(&w->sim.mem, p->via2.addr, 16, via2_rd, via2_wr, w, "VIA2");
 
