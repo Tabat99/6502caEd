@@ -14968,6 +14968,251 @@ static void action_instruction_ref(GSimpleAction *a, GVariant *p,
   gtk_window_present(GTK_WINDOW(d->dlg));
 }
 
+/* Native, searchable source profile reference, matching the reference browsers. */
+#include "profile_guide_data.h"
+
+typedef struct {
+  GtkWidget *dlg, *search, *list, *detail_box, *detail_scroll;
+  GtkWidget *copy_button, *results;
+  int cur_index;
+} ProfileGuideDlg;
+
+static gboolean profile_guide_matches(int index, const char *query) {
+  if (index < 0 || index >= PROFILE_GUIDE_COUNT) return FALSE;
+  if (!query || !query[0]) return TRUE;
+  gchar *body = g_utf8_casefold(profile_guide_sections[index].text, -1);
+  gchar *folded = g_utf8_casefold(query, -1);
+  gchar **words = g_strsplit_set(folded, " \t\r\n", -1);
+  gboolean matches = TRUE;
+  for (int i = 0; words[i]; i++) {
+    if (words[i][0] && !strstr(body, words[i])) {
+      matches = FALSE;
+      break;
+    }
+  }
+  g_strfreev(words);
+  g_free(folded);
+  g_free(body);
+  return matches;
+}
+
+static gboolean profile_guide_filter(GtkListBoxRow *row, gpointer ud) {
+  ProfileGuideDlg *d = ud;
+  int index = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row), "profile-guide-index"));
+  return profile_guide_matches(index, gtk_editable_get_text(GTK_EDITABLE(d->search)));
+}
+
+static void profile_guide_copy_example(GtkButton *button, gpointer ud) {
+  (void)ud;
+  const char *text = g_object_get_data(G_OBJECT(button), "profile-guide-example");
+  if (text) gdk_clipboard_set_text(gtk_widget_get_clipboard(GTK_WIDGET(button)), text);
+}
+
+static GtkWidget *profile_guide_label(const char *text) {
+  GtkWidget *label = gtk_label_new(text);
+  gtk_label_set_xalign(GTK_LABEL(label), 0.0f);
+  gtk_label_set_wrap(GTK_LABEL(label), TRUE);
+  gtk_label_set_selectable(GTK_LABEL(label), TRUE);
+  gtk_widget_set_hexpand(label, TRUE);
+  return label;
+}
+
+static void profile_guide_build_detail(ProfileGuideDlg *d, int index) {
+  GtkWidget *child;
+  while ((child = gtk_widget_get_first_child(d->detail_box)))
+    gtk_box_remove(GTK_BOX(d->detail_box), child);
+  d->cur_index = index;
+  gtk_widget_set_sensitive(d->copy_button, index >= 0);
+  if (index < 0 || index >= PROFILE_GUIDE_COUNT) {
+    gtk_box_append(GTK_BOX(d->detail_box), profile_guide_label("No matching sections. Try another search."));
+    return;
+  }
+  const profile_guide_section_t *section = &profile_guide_sections[index];
+  GtkWidget *title = profile_guide_label(section->title);
+  gtk_widget_add_css_class(title, "title-2");
+  gtk_box_append(GTK_BOX(d->detail_box), title);
+  for (unsigned i = 0; i < section->count; i++) {
+    const profile_guide_block_t *block = &section->blocks[i];
+    GtkWidget *widget;
+    if (block->kind == PG_CODE) {
+      GtkWidget *bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+      GtkWidget *copy = gtk_button_new_with_label("Copy example");
+      g_object_set_data(G_OBJECT(copy), "profile-guide-example", (gpointer)block->text);
+      g_signal_connect(copy, "clicked", G_CALLBACK(profile_guide_copy_example), NULL);
+      gtk_box_append(GTK_BOX(bar), copy);
+      gtk_box_append(GTK_BOX(d->detail_box), bar);
+      GtkWidget *view = gtk_text_view_new();
+      gtk_text_view_set_editable(GTK_TEXT_VIEW(view), FALSE);
+      gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(view), FALSE);
+      gtk_text_view_set_monospace(GTK_TEXT_VIEW(view), TRUE);
+      gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(view), GTK_WRAP_NONE);
+      gtk_text_view_set_left_margin(GTK_TEXT_VIEW(view), 8);
+      gtk_text_view_set_right_margin(GTK_TEXT_VIEW(view), 8);
+      gtk_text_view_set_top_margin(GTK_TEXT_VIEW(view), 8);
+      gtk_text_view_set_bottom_margin(GTK_TEXT_VIEW(view), 8);
+      gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)), block->text, -1);
+      widget = gtk_scrolled_window_new();
+      gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(widget), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+      gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(widget), 70);
+      gtk_scrolled_window_set_max_content_height(GTK_SCROLLED_WINDOW(widget), 360);
+      gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(widget), TRUE);
+      gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(widget), view);
+    } else if (block->kind == PG_TABLE) {
+      GtkWidget *grid = gtk_grid_new();
+      gtk_grid_set_column_spacing(GTK_GRID(grid), 16);
+      gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
+      gchar **rows = g_strsplit(block->text, "\n", -1);
+      for (int r = 0; rows[r]; r++) {
+        gchar **cells = g_strsplit(rows[r], "\t", -1);
+        for (int c = 0; cells[c]; c++) {
+          GtkWidget *cell = profile_guide_label(cells[c]);
+          gtk_widget_set_valign(cell, GTK_ALIGN_START);
+          if (r == 0) gtk_widget_add_css_class(cell, "heading");
+          gtk_grid_attach(GTK_GRID(grid), cell, c, r, 1, 1);
+        }
+        g_strfreev(cells);
+      }
+      g_strfreev(rows);
+      widget = grid;
+    } else {
+      widget = profile_guide_label(block->text);
+      if (block->kind == PG_HEADING) {
+        gtk_widget_add_css_class(widget, "heading");
+        gtk_widget_set_margin_top(widget, 12);
+      }
+    }
+    gtk_box_append(GTK_BOX(d->detail_box), widget);
+  }
+  GtkAdjustment *adjustment = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(d->detail_scroll));
+  gtk_adjustment_set_value(adjustment, 0);
+}
+
+static void profile_guide_row_selected(GtkListBox *list, GtkListBoxRow *row, gpointer ud) {
+  (void)list;
+  if (!row) return;
+  profile_guide_build_detail(ud, GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row), "profile-guide-index")));
+}
+
+static void profile_guide_search_changed(GtkSearchEntry *entry, gpointer ud) {
+  (void)entry;
+  ProfileGuideDlg *d = ud;
+  const char *query = gtk_editable_get_text(GTK_EDITABLE(d->search));
+  int first = -1, count = 0;
+  for (int i = 0; i < PROFILE_GUIDE_COUNT; i++) {
+    if (profile_guide_matches(i, query)) {
+      if (first < 0) first = i;
+      count++;
+    }
+  }
+  gchar *status = g_strdup_printf("%d of %d sections", count, PROFILE_GUIDE_COUNT);
+  gtk_label_set_text(GTK_LABEL(d->results), status);
+  g_free(status);
+  gtk_list_box_invalidate_filter(GTK_LIST_BOX(d->list));
+  if (d->cur_index >= 0 && profile_guide_matches(d->cur_index, query)) first = d->cur_index;
+  if (first >= 0) {
+    GtkListBoxRow *row = gtk_list_box_get_row_at_index(GTK_LIST_BOX(d->list), first);
+    gtk_list_box_select_row(GTK_LIST_BOX(d->list), row);
+    profile_guide_build_detail(d, first);
+  } else {
+    gtk_list_box_unselect_all(GTK_LIST_BOX(d->list));
+    profile_guide_build_detail(d, -1);
+  }
+}
+
+static void profile_guide_copy_section(GtkButton *button, gpointer ud) {
+  ProfileGuideDlg *d = ud;
+  if (d->cur_index >= 0 && d->cur_index < PROFILE_GUIDE_COUNT)
+    gdk_clipboard_set_text(gtk_widget_get_clipboard(GTK_WIDGET(button)),
+                           profile_guide_sections[d->cur_index].text);
+}
+
+static gboolean profile_guide_key_pressed(GtkEventControllerKey *ctl, guint keyval,
+                                          guint keycode, GdkModifierType state, gpointer ud) {
+  ProfileGuideDlg *d = ud;
+  if ((state & GDK_CONTROL_MASK) && (keyval == GDK_KEY_f || keyval == GDK_KEY_F)) {
+    gtk_widget_grab_focus(d->search);
+    return TRUE;
+  }
+  return refwnd_key_pressed_cb(ctl, keyval, keycode, state, NULL);
+}
+
+static void action_profile_guide(GSimpleAction *a, GVariant *p, gpointer user_data) {
+  (void)a; (void)p;
+  AppState *s = user_data;
+  ProfileGuideDlg *d = g_new0(ProfileGuideDlg, 1);
+  d->cur_index = -1;
+  d->dlg = gtk_window_new();
+  gtk_window_set_title(GTK_WINDOW(d->dlg), "Source Profile Guide");
+  gtk_window_set_transient_for(GTK_WINDOW(d->dlg), GTK_WINDOW(s->win));
+  gtk_window_set_destroy_with_parent(GTK_WINDOW(d->dlg), TRUE);
+  gtk_window_set_default_size(GTK_WINDOW(d->dlg), 1050, 720);
+  apply_window_dark_hint(d->dlg, s->dark_mode);
+  g_object_set_data_full(G_OBJECT(d->dlg), "profile-guide-dialog", d, g_free);
+
+  GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
+  gtk_paned_set_position(GTK_PANED(paned), 260);
+  gtk_window_set_child(GTK_WINDOW(d->dlg), paned);
+  GtkWidget *left = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+  gtk_widget_set_margin_top(left, 8);
+  gtk_widget_set_margin_bottom(left, 8);
+  gtk_widget_set_margin_start(left, 8);
+  gtk_widget_set_margin_end(left, 8);
+  gtk_paned_set_start_child(GTK_PANED(paned), left);
+  gtk_paned_set_shrink_start_child(GTK_PANED(paned), FALSE);
+  d->search = gtk_search_entry_new();
+  gtk_search_entry_set_placeholder_text(GTK_SEARCH_ENTRY(d->search), "Search guide...");
+  gtk_widget_set_tooltip_text(d->search, "Search section names, settings and examples. All search words must match. Ctrl+F focuses search.");
+  gtk_box_append(GTK_BOX(left), d->search);
+  d->results = gtk_label_new("");
+  gtk_box_append(GTK_BOX(left), d->results);
+  GtkWidget *list_scroll = gtk_scrolled_window_new();
+  gtk_widget_set_vexpand(list_scroll, TRUE);
+  gtk_box_append(GTK_BOX(left), list_scroll);
+  d->list = gtk_list_box_new();
+  gtk_list_box_set_activate_on_single_click(GTK_LIST_BOX(d->list), TRUE);
+  gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(list_scroll), d->list);
+  for (int i = 0; i < PROFILE_GUIDE_COUNT; i++) {
+    GtkWidget *row = gtk_list_box_row_new();
+    GtkWidget *label = profile_guide_label(profile_guide_sections[i].title);
+    gtk_label_set_selectable(GTK_LABEL(label), FALSE);
+    gtk_widget_set_margin_top(label, 5);
+    gtk_widget_set_margin_bottom(label, 5);
+    gtk_widget_set_margin_start(label, 5);
+    gtk_widget_set_margin_end(label, 5);
+    gtk_list_box_row_set_child(GTK_LIST_BOX_ROW(row), label);
+    g_object_set_data(G_OBJECT(row), "profile-guide-index", GINT_TO_POINTER(i));
+    gtk_list_box_append(GTK_LIST_BOX(d->list), row);
+  }
+  GtkWidget *right = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+  gtk_paned_set_end_child(GTK_PANED(paned), right);
+  gtk_paned_set_shrink_end_child(GTK_PANED(paned), FALSE);
+  d->copy_button = gtk_button_new_with_label("Copy section");
+  gtk_widget_set_halign(d->copy_button, GTK_ALIGN_END);
+  gtk_widget_set_margin_top(d->copy_button, 8);
+  gtk_widget_set_margin_end(d->copy_button, 8);
+  gtk_box_append(GTK_BOX(right), d->copy_button);
+  g_signal_connect(d->copy_button, "clicked", G_CALLBACK(profile_guide_copy_section), d);
+  d->detail_scroll = gtk_scrolled_window_new();
+  gtk_widget_set_vexpand(d->detail_scroll, TRUE);
+  gtk_box_append(GTK_BOX(right), d->detail_scroll);
+  d->detail_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+  gtk_widget_set_margin_top(d->detail_box, 12);
+  gtk_widget_set_margin_bottom(d->detail_box, 12);
+  gtk_widget_set_margin_start(d->detail_box, 12);
+  gtk_widget_set_margin_end(d->detail_box, 12);
+  gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(d->detail_scroll), d->detail_box);
+  gtk_list_box_set_filter_func(GTK_LIST_BOX(d->list), profile_guide_filter, d, NULL);
+  g_signal_connect(d->list, "row-selected", G_CALLBACK(profile_guide_row_selected), d);
+  g_signal_connect(d->search, "search-changed", G_CALLBACK(profile_guide_search_changed), d);
+  profile_guide_search_changed(GTK_SEARCH_ENTRY(d->search), d);
+
+  GtkEventController *keys = gtk_event_controller_key_new();
+  gtk_event_controller_set_propagation_phase(keys, GTK_PHASE_CAPTURE);
+  g_signal_connect(keys, "key-pressed", G_CALLBACK(profile_guide_key_pressed), d);
+  gtk_widget_add_controller(d->dlg, keys);
+  gtk_window_present(GTK_WINDOW(d->dlg));
+}
+
 static void action_help(GSimpleAction *a, GVariant *p, gpointer user_data) {
   (void)a;
   (void)p;
@@ -16432,6 +16677,7 @@ static GMenuModel *build_menubar_model(AppState *s) {
   {
     GMenu *help = g_menu_new();
     g_menu_append(help, "Contents", "app.help");
+    g_menu_append(help, "Source Profile Guide", "app.profileguide");
     g_menu_append(help, "Instruction Reference", "app.instref");
     g_menu_append(help, "Directive Reference", "app.dref");
     g_menu_append(help, "About", "app.about");
@@ -16454,6 +16700,8 @@ static void add_action(GtkApplication *app, const char *name, GCallback cb,
 typedef struct AssembleFlow {
   AppState *app;
   char *listing_text;
+  char *source_text; /* Unstripped source for the selected assembly profile. */
+  asm_cpu_t cpu;
 
   // Assembler scratch output
   uint8_t *mem;
@@ -16486,6 +16734,7 @@ static void assemble_flow_free(AssembleFlow *f) {
     return;
   if (f->listing_text)
     g_free(f->listing_text);
+  g_free(f->source_text);
   if (f->mem)
     g_free(f->mem);
   if (f->written)
@@ -16744,10 +16993,11 @@ static char *get_project_dir(AppState *s) {
     return NULL;
 }
 
-static void apply_embedded_profile_override(AppState *s, simcfg_t *cfg) {
-  const char *src_text = NULL;
-  size_t src_len = 0;
-  if (s->buf) {
+static void apply_embedded_profile_override(AppState *s, simcfg_t *cfg,
+                                             const char *source_override) {
+  const char *src_text = source_override ? g_strdup(source_override) : NULL;
+  size_t src_len = src_text ? strlen(src_text) : 0;
+  if (!source_override && s->buf) {
     GtkTextBuffer *tb = GTK_TEXT_BUFFER(s->buf);
     GtkTextIter start, end;
     gtk_text_buffer_get_bounds(tb, &start, &end);
@@ -16798,7 +17048,8 @@ static void apply_embedded_profile_override(AppState *s, simcfg_t *cfg) {
     simprofile_save_as(&base, tmp);
     FILE *f = fopen(tmp, "a");
     if (f) {
-      fprintf(f, "\n# embedded overrides\n");
+      fprintf(f, "\n# embedded overrides\n[profile]\n");
+      gboolean in_sd = FALSE;
       const char *p = block;
       while (p < close_pos) {
         const char *lend = strchr(p, '\n');
@@ -16812,6 +17063,24 @@ static void apply_embedded_profile_override(AppState *s, simcfg_t *cfg) {
           if (n > 0) {
             char line[512]; memcpy(line, lp, n); line[n] = '\0';
             char *lt = line; while (*lt == ' ') lt++;
+            if (*lt == '[') in_sd = g_str_has_prefix(lt, "[sd]");
+            char *eq = strchr(lt, '=');
+            if (in_sd && eq) {
+              char *key = g_strndup(lt, eq-lt);
+              g_strstrip(key);
+              if (!strcmp(key,"image")) {
+                char *value = g_strstrip(eq+1);
+                if (*value) {
+                  char *source_dir = g_canonicalize_filename(
+                      cfg->project_dir[0] ? cfg->project_dir : ".", NULL);
+                  char *absolute = g_canonicalize_filename(value, source_dir);
+                  fprintf(f,"image = %s\n",absolute);
+                  g_free(source_dir); g_free(absolute); g_free(key);
+                  p = lend + 1; continue;
+                }
+              }
+              g_free(key);
+            }
             if (*lt && *lt != '#' && *lt != '\r') fprintf(f, "%s\n", line);
           }
         }
@@ -16825,9 +17094,14 @@ static void apply_embedded_profile_override(AppState *s, simcfg_t *cfg) {
 }
 
 #ifdef ED_BUILD_SIM
-static void action_simulator(GSimpleAction *a, GVariant *p, gpointer user_data) {
-  (void)a; (void)p;
-  AppState *s = (AppState *)user_data;
+static void assemble_source_flow(AppState *s, gboolean emulate_after);
+
+static void launch_simulator(AppState *s, const char *source_file,
+                             const char *source_text) {
+  if (!s || !s->mem_valid || !s->mem_image || !s->mem_asm_valid) {
+    if (s) show_error(s, "Assemble a source file containing code or data first.");
+    return;
+  }
   simcfg_t cfg;
   simcfg_defaults(&cfg);
   char cfgpath[1024];
@@ -16839,29 +17113,34 @@ static void action_simulator(GSimpleAction *a, GVariant *p, gpointer user_data) 
   else if (s->mem_cpu == ASM_CPU_65C02) cfg.cpu_type = CPU_65C02;
   else                                   cfg.cpu_type = CPU_6502;
 
-  /* Write mem_image to temp file */
-  if (s->mem_valid && s->mem_image && s->mem_asm_valid) {
-    char tmp_path[512];
-    snprintf(tmp_path, sizeof(tmp_path), "%s/.6502caed_sim_tmp.bin",
-             g_get_home_dir());
-    FILE *tf = fopen(tmp_path, "wb");
-    if (tf) {
-      fwrite(s->mem_image, 1, 65536, tf);
-      fclose(tf);
-      snprintf(cfg.roms[0].path, 512, "%s", tmp_path);
-      cfg.roms[0].load_addr = 0x0000;
-      cfg.roms[0].enabled   = TRUE;
-    }
+  /* Never fall back to an old configured ROM after a write failure. */
+  char tmp_path[512];
+  snprintf(tmp_path, sizeof(tmp_path), "%s/.6502caed_sim_tmp.bin",
+           g_get_home_dir());
+  FILE *tf = fopen(tmp_path, "wb");
+  if (!tf) {
+    show_error(s, "Could not create the simulator ROM image.");
+    return;
   }
+  size_t written = fwrite(s->mem_image, 1, 65536, tf);
+  int close_result = fclose(tf);
+  if (written != 65536 || close_result != 0) {
+    show_error(s, "Could not write the complete simulator ROM image.");
+    return;
+  }
+  snprintf(cfg.roms[0].path, sizeof(cfg.roms[0].path), "%s", tmp_path);
+  cfg.roms[0].load_addr = 0;
+  cfg.roms[0].enabled = TRUE;
   /* Set project_dir in cfg so sim_win_create finds the right profile */
   {
-    char *pdir = get_project_dir(s);
+    char *pdir = (source_file && source_file[0] && source_file[0] != '(')
+        ? g_path_get_dirname(source_file) : get_project_dir(s);
     if (pdir) {
       snprintf(cfg.project_dir, sizeof(cfg.project_dir), "%s", pdir);
       g_free(pdir);
     }
   }
-  apply_embedded_profile_override(s, &cfg);
+  apply_embedded_profile_override(s, &cfg, source_text);
 
   sim_win_t *simwin = sim_win_create(s->win, &cfg, s->dark_mode);
   if (simwin && s->mem_valid && s->mem_image) {
@@ -16874,74 +17153,40 @@ static void action_simulator(GSimpleAction *a, GVariant *p, gpointer user_data) 
     g_object_set_data(G_OBJECT(s->app), "active_sim_window",
                       sim_win_get_window(simwin));
     /* Pass project directory for profile discovery */
-    char *pdir = get_project_dir(s);
+    char *pdir = (source_file && source_file[0] && source_file[0] != '(')
+        ? g_path_get_dirname(source_file) : get_project_dir(s);
     if (pdir) {
       sim_win_set_project_dir(simwin, pdir);
       g_free(pdir);
     }
   }
 }
+static void action_simulator(GSimpleAction *a, GVariant *p, gpointer user_data) {
+  (void)a; (void)p;
+  /* Use exactly the same source selection and assembler as normal Assemble. */
+  assemble_source_flow((AppState *)user_data, TRUE);
+}
 static void listing_emulate_clicked(GtkButton *b, gpointer user_data) {
   (void)b;
   GtkWidget *win = GTK_WIDGET(user_data);
   AppState *s = (AppState *)g_object_get_data(G_OBJECT(win), "app_state");
+  AssembleFlow *f = (AssembleFlow *)g_object_get_data(G_OBJECT(win), "assemble_flow");
+  /* The listing owns this successful assembly. Do not use a newer/older tab's
+   * cached image or profile when emulating from an existing listing. */
+  if (s && f && f->mem && f->min_written <= f->max_written) {
+    memcpy(s->mem_image, f->mem, 65536);
+    s->mem_valid = TRUE;
+    s->mem_dirty = FALSE;
+    s->mem_cpu = f->cpu;
+    s->mem_asm_start = f->min_written;
+    s->mem_asm_valid = TRUE;
+    launch_simulator(s, f->file, f->source_text);
+  }
+  if (f) {
+    g_object_set_data(G_OBJECT(win), "assemble_flow", NULL);
+    assemble_flow_free(f);
+  }
   gtk_window_destroy(GTK_WINDOW(win));
-  if (!s) return;
-
-  /* Write mem_image to temp file and open simulator */
-  simcfg_t cfg;
-  simcfg_defaults(&cfg);
-  char cfgpath[1024];
-  snprintf(cfgpath, sizeof(cfgpath), "%s/sim.cfg", g_get_home_dir());
-  simcfg_load(&cfg, cfgpath);
-
-  /* Set CPU type from last assembly .cpu directive */
-  if (s->mem_cpu == ASM_CPU_65816)
-    cfg.cpu_type = CPU_65816;
-  else if (s->mem_cpu == ASM_CPU_65C02)
-    cfg.cpu_type = CPU_65C02;
-  else
-    cfg.cpu_type = CPU_6502;
-
-  if (s->mem_valid && s->mem_image && s->mem_asm_valid) {
-    char tmp_path[512];
-    snprintf(tmp_path, sizeof(tmp_path), "%s/.6502caed_sim_tmp.bin",
-             g_get_home_dir());
-    FILE *tf = fopen(tmp_path, "wb");
-    if (tf) {
-      fwrite(s->mem_image, 1, 65536, tf);
-      fclose(tf);
-      snprintf(cfg.roms[0].path, 512, "%s", tmp_path);
-      cfg.roms[0].load_addr = 0x0000;
-      cfg.roms[0].enabled   = TRUE;
-    }
-  }
-  /* Set project_dir in cfg so sim_win_create finds the right profile */
-  {
-    char *pdir = get_project_dir(s);
-    if (pdir) {
-      snprintf(cfg.project_dir, sizeof(cfg.project_dir), "%s", pdir);
-      g_free(pdir);
-    }
-  }
-  apply_embedded_profile_override(s, &cfg);
-  sim_win_t *simwin = sim_win_create(s->win, &cfg, s->dark_mode);
-  /* Store memory snapshot on simulator window for Reload ROM button */
-  if (simwin && s->mem_valid && s->mem_image) {
-    GBytes *snap = g_bytes_new(s->mem_image, 65536);
-    g_object_set_data_full(G_OBJECT(sim_win_get_window(simwin)),
-                           "mem_snapshot", snap,
-                           (GDestroyNotify)g_bytes_unref);
-    sim_win_set_app_state(simwin, s);
-    g_object_set_data(G_OBJECT(s->app), "active_sim_window",
-                      sim_win_get_window(simwin));
-    /* Pass project directory for profile discovery */
-    char *pdir = get_project_dir(s);
-    if (pdir) {
-      sim_win_set_project_dir(simwin, pdir);
-      g_free(pdir);
-    }
-  }
 }
 #endif
 
@@ -17968,11 +18213,7 @@ static void action_check(GSimpleAction *action, GVariant *param,
   schedule_highlight(s);
 }
 
-static void action_do_assemble(GSimpleAction *action, GVariant *param,
-                            gpointer user_data) {
-  (void)action;
-  (void)param;
-  AppState *s = (AppState *)user_data;
+static void assemble_source_flow(AppState *s, gboolean emulate_after) {
   if (!s || !s->buf)
     return;
 
@@ -18091,9 +18332,9 @@ static void action_do_assemble(GSimpleAction *action, GVariant *param,
   source_t src;
   src.text = text;
   src.len = strlen(text);
-  source_strip_comments_preserve_layout(&src);
-
   AssembleFlow *f = (AssembleFlow *)g_malloc0(sizeof(AssembleFlow));
+  f->source_text = g_strdup(text);
+  source_strip_comments_preserve_layout(&src);
   f->app = s;
   diags_init(&f->diags);
 
@@ -18123,6 +18364,7 @@ static void action_do_assemble(GSimpleAction *action, GVariant *param,
   asm_settings_t st;
   memset(&st, 0, sizeof(st));
   st.cpu = cpu_from_preproc_defs(&defs);
+  f->cpu = st.cpu;
   {
     const char *_cv = defs_get((defs_t *)&defs, sv_from_cstr("cpu"));
     st.allow_undoc =
@@ -18208,6 +18450,8 @@ static void action_do_assemble(GSimpleAction *action, GVariant *param,
     memcpy(s->mem_image, f->mem, 65536);
     s->mem_valid = TRUE;
     s->mem_dirty = FALSE;
+    s->mem_cpu = f->cpu;
+    s->mem_asm_valid = FALSE;
     if (f->min_written <= f->max_written) {
       s->mem_asm_start = f->min_written;
       s->mem_asm_valid = TRUE;
@@ -18276,9 +18520,29 @@ static void action_do_assemble(GSimpleAction *action, GVariant *param,
     return;
   }
 
+#ifdef ED_BUILD_SIM
+  if (emulate_after) {
+    if (_nbytes == 0) {
+      show_error(s, "The source assembled without emitting any code or data.");
+    } else {
+      launch_simulator(s, f->file, f->source_text);
+    }
+    assemble_flow_free(f);
+    return;
+  }
+#else
+  (void)emulate_after;
+#endif
+
   // On success, keep the assembled memory context alive until the user either
   // clicks "Save Binary" (which launches the save flow) or closes the window.
   show_listing_window(s, wtitle, f->listing_text, f);
+}
+
+static void action_do_assemble(GSimpleAction *action, GVariant *param,
+                               gpointer user_data) {
+  (void)action; (void)param;
+  assemble_source_flow((AppState *)user_data, FALSE);
 }
 
 /* ---------------- Jump-to-definition / Find references ----------------
@@ -20925,6 +21189,7 @@ static void install_actions_and_shortcuts(AppState *s) {
   add_action(s->app, "save", G_CALLBACK(action_save), s);
   add_action(s->app, "save_as", G_CALLBACK(action_save_as), s);
   add_action(s->app, "help", G_CALLBACK(action_help), s);
+  add_action(s->app, "profileguide", G_CALLBACK(action_profile_guide), s);
   add_action(s->app, "instref", G_CALLBACK(action_instruction_ref), s);
   add_action(s->app, "dref", G_CALLBACK(action_directive_ref), s);
   add_action(s->app, "about", G_CALLBACK(action_about), s);
