@@ -25,10 +25,10 @@
 #include <time.h>
 
 #ifdef _WIN32
-#  include <direct.h>
-#  define SIM_MKDIR(p) _mkdir(p)
+#include <direct.h>
+#define SIM_MKDIR(p) _mkdir(p)
 #else
-#  define SIM_MKDIR(p) mkdir(p, 0755)
+#define SIM_MKDIR(p) mkdir(p, 0755)
 #endif
 
 /* ---------------------------------------------------------------------------
@@ -60,8 +60,10 @@
   "label.section-title { font-size: 10px; color: #666; "                       \
   "                      font-weight: bold; }\n"                               \
   "label.acia-conn  { color: #2d7; font-weight: bold; }\n"                     \
-  "label.acia-disc  { color: #744; }\n"\
-  "label.speed-warn { font-family: monospace; font-size: 11px; font-weight: bold; color: #f80; background: rgba(255,136,0,0.15); border-radius: 4px; padding: 2px 6px; min-width: 220px; }\n"
+  "label.acia-disc  { color: #744; }\n"                                        \
+  "label.speed-warn { font-family: monospace; font-size: 11px; font-weight: "  \
+  "bold; color: #f80; background: rgba(255,136,0,0.15); border-radius: 4px; "  \
+  "padding: 2px 6px; min-width: 220px; }\n"
 
 #define UPDATE_INTERVAL_MS 100 /* UI refresh rate */
 /* Types and sim_win_t struct defined in sim_gtk.h */
@@ -74,247 +76,261 @@
 /* -------------------------------------------------------------------------
  * Drawing constants
  * ------------------------------------------------------------------------- */
-#define LCD_PIX_W     3    /* pixels per LCD dot (embedded) */
-#define LCD_PIX_H     4    /* pixels per LCD dot (embedded) */
-#define LCD_PIX_W_POP 5    /* pixels per LCD dot (pop-out) */
-#define LCD_PIX_H_POP 7    /* pixels per LCD dot (pop-out) */
-#define LCD_GAP_X     1    /* gap between pixels horizontally */
-#define LCD_GAP_Y     1    /* gap between pixels vertically */
-#define LCD_CELL_PAD_X 2   /* padding between characters horizontally */
-#define LCD_CELL_PAD_Y 4   /* padding between characters vertically */
-#define LCD_MARGIN    6    /* outer margin */
+#define LCD_PIX_W 3      /* pixels per LCD dot (embedded) */
+#define LCD_PIX_H 4      /* pixels per LCD dot (embedded) */
+#define LCD_PIX_W_POP 5  /* pixels per LCD dot (pop-out) */
+#define LCD_PIX_H_POP 7  /* pixels per LCD dot (pop-out) */
+#define LCD_GAP_X 1      /* gap between pixels horizontally */
+#define LCD_GAP_Y 1      /* gap between pixels vertically */
+#define LCD_CELL_PAD_X 2 /* padding between characters horizontally */
+#define LCD_CELL_PAD_Y 4 /* padding between characters vertically */
+#define LCD_MARGIN 6     /* outer margin */
 
 /* LCD green background and pixel colours */
 static const double LCD_BG_R = 0.13, LCD_BG_G = 0.37, LCD_BG_B = 0.13;
 static const double LCD_ON_R = 0.07, LCD_ON_G = 0.15, LCD_ON_B = 0.07;
-static const double LCD_OFF_R= 0.17, LCD_OFF_G= 0.47, LCD_OFF_B= 0.17;
+static const double LCD_OFF_R = 0.17, LCD_OFF_G = 0.47, LCD_OFF_B = 0.17;
 
 /* -------------------------------------------------------------------------
  * Read a single pin from the VIA output state
  * Returns 0 or 1
  * ------------------------------------------------------------------------- */
 static int read_pin(struct sim_win_t *w, const lcd_pin_t *pin) {
-    via_t *v = &w->sim.via[pin->via - 1];
-    uint8_t out = (pin->port == 0) ? via_get_pa_out(v) : via_get_pb_out(v);
-    return (out >> pin->bit) & 1;
+  via_t *v = &w->sim.via[pin->via - 1];
+  uint8_t out = (pin->port == 0) ? via_get_pa_out(v) : via_get_pb_out(v);
+  return (out >> pin->bit) & 1;
 }
 
 /* Read 8-bit data bus (or 4-bit nibble for 4-bit mode) from VIA pins */
 static uint8_t read_data_pins(struct sim_win_t *w) {
-    lcd_cfg_t *cfg = &w->lcd_ui.cfg;
-    int nbits = (cfg->bus_width == 4) ? 4 : 8;
-    uint8_t val = 0;
-    for (int i = 0; i < nbits; i++) {
-        if (read_pin(w, &cfg->data[i]))
-            val |= (1 << i);
-    }
-    return val;
+  lcd_cfg_t *cfg = &w->lcd_ui.cfg;
+  int nbits = (cfg->bus_width == 4) ? 4 : 8;
+  uint8_t val = 0;
+  for (int i = 0; i < nbits; i++) {
+    if (read_pin(w, &cfg->data[i]))
+      val |= (1 << i);
+  }
+  return val;
 }
 
 /* Write a pin back to the VIA input (for read operations from LCD) */
 static void write_pin(struct sim_win_t *w, const lcd_pin_t *pin, int value) {
-    via_t *v = &w->sim.via[pin->via - 1];
-    uint8_t mask = (uint8_t)(1 << pin->bit);
-    uint8_t cur  = (pin->port == 0) ? v->PA_in : v->PB_in;
-    if (value)
-        cur |= mask;
-    else
-        cur &= ~mask;
-    if (pin->port == 0)
-        via_set_pa(v, cur);
-    else
-        via_set_pb(v, cur);
+  via_t *v = &w->sim.via[pin->via - 1];
+  uint8_t mask = (uint8_t)(1 << pin->bit);
+  uint8_t cur = (pin->port == 0) ? v->PA_in : v->PB_in;
+  if (value)
+    cur |= mask;
+  else
+    cur &= ~mask;
+  if (pin->port == 0)
+    via_set_pa(v, cur);
+  else
+    via_set_pb(v, cur);
 }
 
 /* Write the data bus back to VIA input pins (for LCD→CPU reads) */
 static void write_data_pins(struct sim_win_t *w, uint8_t val) {
-    lcd_cfg_t *cfg = &w->lcd_ui.cfg;
-    int nbits = (cfg->bus_width == 4) ? 4 : 8;
-    for (int i = 0; i < nbits; i++)
-        write_pin(w, &cfg->data[i], (val >> i) & 1);
+  lcd_cfg_t *cfg = &w->lcd_ui.cfg;
+  int nbits = (cfg->bus_width == 4) ? 4 : 8;
+  for (int i = 0; i < nbits; i++)
+    write_pin(w, &cfg->data[i], (val >> i) & 1);
 }
 
 /* -------------------------------------------------------------------------
  * E-strobe detection and LCD command dispatch
  * ------------------------------------------------------------------------- */
 void lcd_ui_via_changed(struct sim_win_t *w, int via_idx) {
-    lcd_ui_t *ui = &w->lcd_ui;
-    if (!ui->cfg.enabled) return;
+  lcd_ui_t *ui = &w->lcd_ui;
+  if (!ui->cfg.enabled)
+    return;
 
-    /* Check if the E pin belongs to this VIA */
-    if (ui->cfg.e.via - 1 != via_idx) return;
+  /* Check if the E pin belongs to this VIA */
+  if (ui->cfg.e.via - 1 != via_idx)
+    return;
 
-    bool e_now = read_pin(w, &ui->cfg.e) != 0;
+  bool e_now = read_pin(w, &ui->cfg.e) != 0;
 
-    bool rs = read_pin(w, &ui->cfg.rs) != 0;
-    bool rw = read_pin(w, &ui->cfg.rw) != 0;
+  bool rs = read_pin(w, &ui->cfg.rs) != 0;
+  bool rw = read_pin(w, &ui->cfg.rw) != 0;
 
-    /* Real HD44780 read timing:
-     * When RW=1, the LCD drives DB0-DB7 while E is high.  The CPU/VIA
-     * must therefore be able to read the data bus before E falls.
-     *
-     * Minimal simulator fix: on E rising edge, pre-drive the VIA input
-     * pins with the LCD read value.  The existing falling-edge strobe is
-     * kept below so read-side effects still occur at the end of the E
-     * pulse, while writes continue to latch on E falling edge as before.
-     */
-    if (!ui->e_last && e_now && rw) {
-        uint8_t result = rs ? lcd_read_data(&ui->lcd)
-                            : lcd_read_bf_ac(&ui->lcd);
-        write_data_pins(w, result);
+  /* Real HD44780 read timing:
+   * When RW=1, the LCD drives DB0-DB7 while E is high.  The CPU/VIA
+   * must therefore be able to read the data bus before E falls.
+   *
+   * Minimal simulator fix: on E rising edge, pre-drive the VIA input
+   * pins with the LCD read value.  The existing falling-edge strobe is
+   * kept below so read-side effects still occur at the end of the E
+   * pulse, while writes continue to latch on E falling edge as before.
+   */
+  if (!ui->e_last && e_now && rw) {
+    uint8_t result = rs ? lcd_read_data(&ui->lcd) : lcd_read_bf_ac(&ui->lcd);
+    write_data_pins(w, result);
+  }
+
+  /* Detect falling edge of E — write data is latched on E↓ */
+  if (ui->e_last && !e_now) {
+    uint8_t data = rw ? 0 : read_data_pins(w);
+    /* An eight-wire connection can run the controller in 4-bit mode.
+     * lcd_strobe expects a nibble in bits 0..3 in that mode. Select
+     * physical D4..D7, rather than mistaking D0..D3 for the nibble.
+     * Decide before the strobe: this transfer may change bus_8bit. */
+    if (!rw && ui->cfg.bus_width == 8 && !ui->lcd.bus_8bit)
+      data >>= 4;
+
+    bool busy = false;
+    uint8_t result = lcd_strobe(&ui->lcd, rs, rw, data, &busy);
+
+    /* For read operations, leave the final value on the VIA input pins. */
+    if (rw) {
+      write_data_pins(w, result);
     }
-
-    /* Detect falling edge of E — write data is latched on E↓ */
-    if (ui->e_last && !e_now) {
-        uint8_t data = rw ? 0 : read_data_pins(w);
-
-        bool busy = false;
-        uint8_t result = lcd_strobe(&ui->lcd, rs, rw, data, &busy);
-
-        /* For read operations, leave the final value on the VIA input pins. */
-        if (rw) {
-            write_data_pins(w, result);
-        }
-    }
-    ui->e_last = e_now;
+  }
+  ui->e_last = e_now;
 }
 
 /* -------------------------------------------------------------------------
  * Drawing
  * ------------------------------------------------------------------------- */
-static void draw_lcd(GtkDrawingArea *area, cairo_t *cr,
-                     int width, int height, gpointer ud) {
-    struct sim_win_t *w = (struct sim_win_t *)ud;
-    lcd_ui_t *ui = &w->lcd_ui;
-    lcd_t    *lcd = &ui->lcd;
-    int cols = lcd->cols;
-    int rows = lcd->rows;
-    bool popout = (GTK_WIDGET(area) == ui->popout_drawing);
+static void draw_lcd(GtkDrawingArea *area, cairo_t *cr, int width, int height,
+                     gpointer ud) {
+  struct sim_win_t *w = (struct sim_win_t *)ud;
+  lcd_ui_t *ui = &w->lcd_ui;
+  /* Render a coherent snapshot while the CPU updates the live LCD. */
+  pthread_mutex_lock(&w->sim.state_lock);
+  lcd_t snapshot = ui->lcd;
+  bool enabled = ui->cfg.enabled;
+  pthread_mutex_unlock(&w->sim.state_lock);
+  lcd_t *lcd = &snapshot;
+  int cols = lcd->cols;
+  int rows = lcd->rows;
+  bool popout = (GTK_WIDGET(area) == ui->popout_drawing);
 
-    int pw = popout ? LCD_PIX_W_POP : LCD_PIX_W;
-    int ph = popout ? LCD_PIX_H_POP : LCD_PIX_H;
+  int pw = popout ? LCD_PIX_W_POP : LCD_PIX_W;
+  int ph = popout ? LCD_PIX_H_POP : LCD_PIX_H;
 
-    /* Character cell size: 5 pixels wide + gaps, 8 rows + gaps */
-    int cell_w = 5 * (pw + LCD_GAP_X) - LCD_GAP_X + LCD_CELL_PAD_X;
-    int cell_h = 8 * (ph + LCD_GAP_Y) - LCD_GAP_Y + LCD_CELL_PAD_Y;
+  /* Character cell size: 5 pixels wide + gaps, 8 rows + gaps */
+  int cell_w = 5 * (pw + LCD_GAP_X) - LCD_GAP_X + LCD_CELL_PAD_X;
+  int cell_h = 8 * (ph + LCD_GAP_Y) - LCD_GAP_Y + LCD_CELL_PAD_Y;
 
-    int total_w = LCD_MARGIN * 2 + cols * cell_w;
-    int total_h = LCD_MARGIN * 2 + rows * cell_h;
+  int total_w = LCD_MARGIN * 2 + cols * cell_w;
+  int total_h = LCD_MARGIN * 2 + rows * cell_h;
 
-    /* Background — fill full allocated widget area to avoid border artifacts */
-    cairo_set_source_rgb(cr, LCD_BG_R, LCD_BG_G, LCD_BG_B);
-    cairo_rectangle(cr, 0, 0, width, height);
-    cairo_fill(cr);
+  /* Background — fill full allocated widget area to avoid border artifacts */
+  /* Visual status cue, not a model of a physical backlight circuit. */
+  bool lit = enabled && lcd->initialised;
+  double light = lit ? 1.0 : 0.28;
+  cairo_set_source_rgb(cr, LCD_BG_R * light, LCD_BG_G * light,
+                       LCD_BG_B * light);
+  cairo_rectangle(cr, 0, 0, width, height);
+  cairo_fill(cr);
 
-    if (!ui->cfg.enabled) {
-        /* Show "LCD disabled" message */
-        cairo_set_source_rgb(cr, LCD_OFF_R, LCD_OFF_G, LCD_OFF_B);
-        cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL,
-                               CAIRO_FONT_WEIGHT_NORMAL);
-        cairo_set_font_size(cr, 11);
-        cairo_move_to(cr, LCD_MARGIN, total_h / 2);
-        cairo_show_text(cr, "LCD disabled");
-        return;
-    }
+  if (!enabled) {
+    /* Show "LCD disabled" message */
+    cairo_set_source_rgb(cr, LCD_OFF_R, LCD_OFF_G, LCD_OFF_B);
+    cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL,
+                           CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(cr, 11);
+    cairo_move_to(cr, LCD_MARGIN, total_h / 2);
+    cairo_show_text(cr, "LCD disabled");
+    return;
+  }
 
-    /* Draw each character */
-    for (int row = 0; row < rows; row++) {
-        for (int col = 0; col < cols; col++) {
-            uint8_t ch = lcd_get_char(lcd, col, row);
-            uint8_t pixels[8];
-            lcd_get_bitmap(lcd, ch, pixels);
+  /* Draw each character */
+  for (int row = 0; row < rows; row++) {
+    for (int col = 0; col < cols; col++) {
+      uint8_t ch = lcd_get_char(lcd, col, row);
+      uint8_t pixels[8];
+      lcd_get_bitmap(lcd, ch, pixels);
 
-            bool cursor = lcd_cursor_at(lcd, col, row);
-            bool blink  = cursor && lcd_blink_on(lcd);
+      bool cursor = lcd_cursor_at(lcd, col, row);
+      bool blink = cursor && lcd_blink_on(lcd);
 
-            int cx = LCD_MARGIN + col * cell_w;
-            int cy = LCD_MARGIN + row * cell_h;
+      int cx = LCD_MARGIN + col * cell_w;
+      int cy = LCD_MARGIN + row * cell_h;
 
-            for (int py = 0; py < 8; py++) {
-                for (int px = 0; px < 5; px++) {
-                    bool on;
-                    if (blink)
-                        on = true; /* blink: all pixels on */
-                    else
-                        on = (pixels[py] >> (4 - px)) & 1;
+      for (int py = 0; py < 8; py++) {
+        for (int px = 0; px < 5; px++) {
+          bool on;
+          if (blink)
+            on = true; /* blink: all pixels on */
+          else
+            on = (pixels[py] >> (4 - px)) & 1;
 
-                    /* Cursor underline on row 7 */
-                    if (cursor && !blink && py == 7)
-                        on = true;
+          /* Cursor underline on row 7 */
+          if (cursor && !blink && py == 7)
+            on = true;
 
-                    double r = on ? LCD_ON_R : LCD_OFF_R;
-                    double g = on ? LCD_ON_G : LCD_OFF_G;
-                    double b = on ? LCD_ON_B : LCD_OFF_B;
+          double r = (on ? LCD_ON_R : LCD_OFF_R) * light;
+          double g = (on ? LCD_ON_G : LCD_OFF_G) * light;
+          double b = (on ? LCD_ON_B : LCD_OFF_B) * light;
 
-                    cairo_set_source_rgb(cr, r, g, b);
-                    cairo_rectangle(cr,
-                        cx + px * (pw + LCD_GAP_X),
-                        cy + py * (ph + LCD_GAP_Y),
-                        pw, ph);
-                    cairo_fill(cr);
-                }
-            }
+          cairo_set_source_rgb(cr, r, g, b);
+          cairo_rectangle(cr, cx + px * (pw + LCD_GAP_X),
+                          cy + py * (ph + LCD_GAP_Y), pw, ph);
+          cairo_fill(cr);
         }
+      }
     }
+  }
 }
 
 /* -------------------------------------------------------------------------
  * Pop-out window
  * ------------------------------------------------------------------------- */
 static void on_popout_close(GtkWindow *win, gpointer ud) {
-    (void)win;
-    struct sim_win_t *w = (struct sim_win_t *)ud;
-    w->lcd_ui.popout_win     = NULL;
-    w->lcd_ui.popout_drawing = NULL;
+  (void)win;
+  struct sim_win_t *w = (struct sim_win_t *)ud;
+  w->lcd_ui.popout_win = NULL;
+  w->lcd_ui.popout_drawing = NULL;
 }
 
 static void on_popout_clicked(GtkButton *btn, gpointer ud) {
-    (void)btn;
-    struct sim_win_t *w = (struct sim_win_t *)ud;
-    lcd_ui_t *ui = &w->lcd_ui;
+  (void)btn;
+  struct sim_win_t *w = (struct sim_win_t *)ud;
+  lcd_ui_t *ui = &w->lcd_ui;
 
-    if (ui->popout_win) {
-        gtk_window_present(GTK_WINDOW(ui->popout_win));
-        return;
-    }
+  if (ui->popout_win) {
+    gtk_window_present(GTK_WINDOW(ui->popout_win));
+    return;
+  }
 
-    GtkWidget *win = gtk_window_new();
-    gtk_window_set_title(GTK_WINDOW(win), "LCD Display");
-    gtk_window_set_transient_for(GTK_WINDOW(win), GTK_WINDOW(w->window));
-    gtk_window_set_resizable(GTK_WINDOW(win), FALSE);
+  GtkWidget *win = gtk_window_new();
+  gtk_window_set_title(GTK_WINDOW(win), "LCD Display");
+  gtk_window_set_transient_for(GTK_WINDOW(win), GTK_WINDOW(w->window));
+  gtk_window_set_resizable(GTK_WINDOW(win), FALSE);
 
-    /* Match dark/light */
-    if (gtk_widget_has_css_class(w->window, "dark"))
-        gtk_widget_add_css_class(win, "dark");
+  /* Match dark/light */
+  if (gtk_widget_has_css_class(w->window, "dark"))
+    gtk_widget_add_css_class(win, "dark");
 
-    int cols = ui->lcd.cols;
-    int rows = ui->lcd.rows;
-    int cell_w = 5 * (LCD_PIX_W_POP + LCD_GAP_X) - LCD_GAP_X + LCD_CELL_PAD_X;
-    int cell_h = 8 * (LCD_PIX_H_POP + LCD_GAP_Y) - LCD_GAP_Y + LCD_CELL_PAD_Y;
-    int tw = LCD_MARGIN * 2 + cols * cell_w;
-    int th = LCD_MARGIN * 2 + rows * cell_h;
+  int cols = ui->lcd.cols;
+  int rows = ui->lcd.rows;
+  int cell_w = 5 * (LCD_PIX_W_POP + LCD_GAP_X) - LCD_GAP_X + LCD_CELL_PAD_X;
+  int cell_h = 8 * (LCD_PIX_H_POP + LCD_GAP_Y) - LCD_GAP_Y + LCD_CELL_PAD_Y;
+  int tw = LCD_MARGIN * 2 + cols * cell_w;
+  int th = LCD_MARGIN * 2 + rows * cell_h;
 
-    GtkWidget *da = gtk_drawing_area_new();
-    gtk_drawing_area_set_content_width(GTK_DRAWING_AREA(da), tw);
-    gtk_drawing_area_set_content_height(GTK_DRAWING_AREA(da), th);
-    gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(da), draw_lcd, w, NULL);
-    gtk_window_set_child(GTK_WINDOW(win), da);
+  GtkWidget *da = gtk_drawing_area_new();
+  gtk_drawing_area_set_content_width(GTK_DRAWING_AREA(da), tw);
+  gtk_drawing_area_set_content_height(GTK_DRAWING_AREA(da), th);
+  gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(da), draw_lcd, w, NULL);
+  gtk_window_set_child(GTK_WINDOW(win), da);
 
-    ui->popout_win     = win;
-    ui->popout_drawing = da;
+  ui->popout_win = win;
+  ui->popout_drawing = da;
 
-    g_signal_connect(win, "destroy", G_CALLBACK(on_popout_close), w);
-    gtk_window_present(GTK_WINDOW(win));
+  g_signal_connect(win, "destroy", G_CALLBACK(on_popout_close), w);
+  gtk_window_present(GTK_WINDOW(win));
 }
 
 /* -------------------------------------------------------------------------
  * Strict mode toggle
  * ------------------------------------------------------------------------- */
 static void on_strict_toggled(GtkCheckButton *btn, gpointer ud) {
-    struct sim_win_t *w = (struct sim_win_t *)ud;
-    bool strict = gtk_check_button_get_active(btn);
-    w->lcd_ui.cfg.strict = strict;
-    lcd_set_strict(&w->lcd_ui.lcd, strict);
+  struct sim_win_t *w = (struct sim_win_t *)ud;
+  bool strict = gtk_check_button_get_active(btn);
+  w->lcd_ui.cfg.strict = strict;
+  lcd_set_strict(&w->lcd_ui.lcd, strict);
 }
 
 /* -------------------------------------------------------------------------
@@ -322,185 +338,187 @@ static void on_strict_toggled(GtkCheckButton *btn, gpointer ud) {
  * ------------------------------------------------------------------------- */
 /* Resize the embedded LCD drawing area to match current cols/rows */
 static void lcd_ui_resize_drawing(struct sim_win_t *w) {
-    lcd_ui_t *ui = &w->lcd_ui;
-    if (!ui->drawing) return;
-    int cell_w = 5 * (LCD_PIX_W + LCD_GAP_X) - LCD_GAP_X + LCD_CELL_PAD_X;
-    int cell_h = 8 * (LCD_PIX_H + LCD_GAP_Y) - LCD_GAP_Y + LCD_CELL_PAD_Y;
-    int tw = LCD_MARGIN * 2 + ui->lcd.cols * cell_w;
-    int th = LCD_MARGIN * 2 + ui->lcd.rows * cell_h;
-    gtk_widget_set_size_request(ui->drawing, tw, th);
-    gtk_widget_queue_draw(ui->drawing);
+  lcd_ui_t *ui = &w->lcd_ui;
+  if (!ui->drawing)
+    return;
+  int cell_w = 5 * (LCD_PIX_W + LCD_GAP_X) - LCD_GAP_X + LCD_CELL_PAD_X;
+  int cell_h = 8 * (LCD_PIX_H + LCD_GAP_Y) - LCD_GAP_Y + LCD_CELL_PAD_Y;
+  int tw = LCD_MARGIN * 2 + ui->lcd.cols * cell_w;
+  int th = LCD_MARGIN * 2 + ui->lcd.rows * cell_h;
+  gtk_widget_set_size_request(ui->drawing, tw, th);
+  gtk_widget_queue_draw(ui->drawing);
 }
 
 static void on_lcd_size_changed(GtkDropDown *dd, GParamSpec *ps, gpointer ud) {
-    (void)ps;
-    struct sim_win_t *w = (struct sim_win_t *)ud;
-    lcd_ui_t *ui = &w->lcd_ui;
-    guint sel = gtk_drop_down_get_selected(dd);
-    /* 0 = 20x4, 1 = 16x2 */
-    int new_cols = (sel == 1) ? 16 : 20;
-    int new_rows = (sel == 1) ? 2  : 4;
-    if (ui->lcd.cols == new_cols && ui->lcd.rows == new_rows) return;
-    /* Update config and reinit LCD core */
-    ui->cfg.cols = new_cols;
-    ui->cfg.rows = new_rows;
-    lcd_init(&ui->lcd, new_cols, new_rows, ui->lcd.cpu_hz);
-    lcd_set_strict(&ui->lcd, ui->cfg.strict);
-    ui->lcd.is_4bit_iface = (ui->cfg.bus_width == 4);
-    ui->e_last = false;
-    /* Update mode label */
-    if (ui->lbl_mode) {
-        char mode_str[64];
-        snprintf(mode_str, sizeof(mode_str), "%dÃ%d  %d-bit  %s",
-                 new_cols, new_rows, ui->cfg.bus_width,
-                 ui->cfg.strict ? "Strict" : "Permissive");
-        gtk_label_set_text(GTK_LABEL(ui->lbl_mode), mode_str);
-    }
-    /* Resize the drawing area */
-    lcd_ui_resize_drawing(w);
-    /* Resize pop-out if open */
-    if (ui->popout_drawing) {
-        int cell_w = 5 * (LCD_PIX_W_POP + LCD_GAP_X) - LCD_GAP_X + LCD_CELL_PAD_X;
-        int cell_h = 8 * (LCD_PIX_H_POP + LCD_GAP_Y) - LCD_GAP_Y + LCD_CELL_PAD_Y;
-        int tw = LCD_MARGIN * 2 + new_cols * cell_w;
-        int th = LCD_MARGIN * 2 + new_rows * cell_h;
-        gtk_widget_set_size_request(ui->popout_drawing, tw, th);
-        if (ui->popout_win)
-            gtk_window_set_default_size(GTK_WINDOW(ui->popout_win), tw, th);
-        gtk_widget_queue_draw(ui->popout_drawing);
-    }
+  (void)ps;
+  struct sim_win_t *w = (struct sim_win_t *)ud;
+  lcd_ui_t *ui = &w->lcd_ui;
+  guint sel = gtk_drop_down_get_selected(dd);
+  /* 0 = 20x4, 1 = 16x2 */
+  int new_cols = (sel == 1) ? 16 : 20;
+  int new_rows = (sel == 1) ? 2 : 4;
+  if (ui->lcd.cols == new_cols && ui->lcd.rows == new_rows)
+    return;
+  /* Update config and reinit LCD core */
+  ui->cfg.cols = new_cols;
+  ui->cfg.rows = new_rows;
+  lcd_init(&ui->lcd, new_cols, new_rows, ui->lcd.cpu_hz);
+  lcd_set_strict(&ui->lcd, ui->cfg.strict);
+  ui->lcd.is_4bit_iface = (ui->cfg.bus_width == 4);
+  ui->e_last = false;
+  /* Update mode label */
+  if (ui->lbl_mode) {
+    char mode_str[64];
+    snprintf(mode_str, sizeof(mode_str), "%dx%d  %d-bit  %s", new_cols,
+             new_rows, ui->cfg.bus_width,
+             ui->cfg.strict ? "Strict" : "Permissive");
+    gtk_label_set_text(GTK_LABEL(ui->lbl_mode), mode_str);
+  }
+  /* Resize the drawing area */
+  lcd_ui_resize_drawing(w);
+  /* Resize pop-out if open */
+  if (ui->popout_drawing) {
+    int cell_w = 5 * (LCD_PIX_W_POP + LCD_GAP_X) - LCD_GAP_X + LCD_CELL_PAD_X;
+    int cell_h = 8 * (LCD_PIX_H_POP + LCD_GAP_Y) - LCD_GAP_Y + LCD_CELL_PAD_Y;
+    int tw = LCD_MARGIN * 2 + new_cols * cell_w;
+    int th = LCD_MARGIN * 2 + new_rows * cell_h;
+    gtk_widget_set_size_request(ui->popout_drawing, tw, th);
+    if (ui->popout_win)
+      gtk_window_set_default_size(GTK_WINDOW(ui->popout_win), tw, th);
+    gtk_widget_queue_draw(ui->popout_drawing);
+  }
 }
 
 GtkWidget *lcd_ui_create(struct sim_win_t *w) {
-    lcd_ui_t *ui = &w->lcd_ui;
-    lcd_cfg_t *cfg = &ui->cfg;
+  lcd_ui_t *ui = &w->lcd_ui;
+  lcd_cfg_t *cfg = &ui->cfg;
 
-    /* Initialise LCD core */
-    lcd_init(&ui->lcd, cfg->cols, cfg->rows, 1000000);
-    lcd_set_strict(&ui->lcd, cfg->strict);
-    ui->lcd.is_4bit_iface = (cfg->bus_width == 4);
-    ui->e_last = false;
+  /* Initialise LCD core */
+  lcd_init(&ui->lcd, cfg->cols, cfg->rows, 1000000);
+  lcd_set_strict(&ui->lcd, cfg->strict);
+  ui->lcd.is_4bit_iface = (cfg->bus_width == 4);
+  ui->e_last = false;
 
-    /* Outer panel */
-    GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-    gtk_widget_add_css_class(panel, "sim-section");
-    ui->panel = panel;
+  /* Outer panel */
+  GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+  gtk_widget_add_css_class(panel, "sim-section");
+  ui->panel = panel;
 
-    /* Header row */
-    GtkWidget *hdr = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
-    GtkWidget *title = gtk_label_new("LCD");
-    gtk_widget_add_css_class(title, "section-title");
-    gtk_widget_set_hexpand(title, TRUE);
-    gtk_widget_set_halign(title, GTK_ALIGN_START);
-    gtk_box_append(GTK_BOX(hdr), title);
+  /* Header row */
+  GtkWidget *hdr = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+  GtkWidget *title = gtk_label_new("LCD");
+  gtk_widget_add_css_class(title, "section-title");
+  gtk_widget_set_hexpand(title, TRUE);
+  gtk_widget_set_halign(title, GTK_ALIGN_START);
+  gtk_box_append(GTK_BOX(hdr), title);
 
-    /* Mode label */
-    char mode_str[64];
-    snprintf(mode_str, sizeof(mode_str), "%d×%d  %d-bit  %s",
-             cfg->cols, cfg->rows, cfg->bus_width,
-             cfg->strict ? "Strict" : "Permissive");
-    GtkWidget *lbl = gtk_label_new(mode_str);
-    gtk_widget_add_css_class(lbl, "reg-name");
-    gtk_box_append(GTK_BOX(hdr), lbl);
-    ui->lbl_mode = lbl;
+  /* Mode label */
+  char mode_str[64];
+  snprintf(mode_str, sizeof(mode_str), "%dx%d  %d-bit  %s", cfg->cols,
+           cfg->rows, cfg->bus_width, cfg->strict ? "Strict" : "Permissive");
+  GtkWidget *lbl = gtk_label_new(mode_str);
+  gtk_widget_add_css_class(lbl, "reg-name");
+  gtk_box_append(GTK_BOX(hdr), lbl);
+  ui->lbl_mode = lbl;
 
-    /* Strict toggle */
-    GtkWidget *chk = gtk_check_button_new_with_label("Strict timing");
-    gtk_check_button_set_active(GTK_CHECK_BUTTON(chk), cfg->strict);
-    gtk_widget_add_css_class(chk, "reg-name");
-    g_signal_connect(chk, "toggled", G_CALLBACK(on_strict_toggled), w);
-    gtk_box_append(GTK_BOX(hdr), chk);
-    ui->btn_strict = chk;
+  /* Strict toggle */
+  GtkWidget *chk = gtk_check_button_new_with_label("Strict timing");
+  gtk_check_button_set_active(GTK_CHECK_BUTTON(chk), cfg->strict);
+  gtk_widget_add_css_class(chk, "reg-name");
+  g_signal_connect(chk, "toggled", G_CALLBACK(on_strict_toggled), w);
+  gtk_box_append(GTK_BOX(hdr), chk);
+  ui->btn_strict = chk;
 
-    /* Size toggle dropdown */
-    GtkWidget *dd_size = gtk_drop_down_new_from_strings(
-        (const char *[]){"20×4", "16×2", NULL});
-    gtk_drop_down_set_selected(GTK_DROP_DOWN(dd_size),
-        (cfg->cols == 16 && cfg->rows == 2) ? 1 : 0);
-    gtk_widget_set_tooltip_text(dd_size, "Switch display size (resets LCD)");
-    g_signal_connect(dd_size, "notify::selected",
-        G_CALLBACK(on_lcd_size_changed), w);
-    gtk_box_append(GTK_BOX(hdr), dd_size);
+  /* Size toggle dropdown */
+  GtkWidget *dd_size =
+      gtk_drop_down_new_from_strings((const char *[]){"20x4", "16x2", NULL});
+  gtk_drop_down_set_selected(GTK_DROP_DOWN(dd_size),
+                             (cfg->cols == 16 && cfg->rows == 2) ? 1 : 0);
+  gtk_widget_set_tooltip_text(dd_size, "Switch display size (resets LCD)");
+  g_signal_connect(dd_size, "notify::selected", G_CALLBACK(on_lcd_size_changed),
+                   w);
+  gtk_box_append(GTK_BOX(hdr), dd_size);
 
-    /* Pop-out button */
-    GtkWidget *btn = gtk_button_new_with_label("⤢");
-    gtk_widget_set_tooltip_text(btn, "Pop out LCD display");
-    g_signal_connect(btn, "clicked", G_CALLBACK(on_popout_clicked), w);
-    gtk_box_append(GTK_BOX(hdr), btn);
-    ui->btn_popout = btn;
+  /* Pop-out button */
+  GtkWidget *btn = gtk_button_new_with_label("⤢");
+  gtk_widget_set_tooltip_text(btn, "Pop out LCD display");
+  g_signal_connect(btn, "clicked", G_CALLBACK(on_popout_clicked), w);
+  gtk_box_append(GTK_BOX(hdr), btn);
+  ui->btn_popout = btn;
 
-    gtk_box_append(GTK_BOX(panel), hdr);
+  gtk_box_append(GTK_BOX(panel), hdr);
 
-    /* Drawing area */
-    int cell_w = 5 * (LCD_PIX_W + LCD_GAP_X) - LCD_GAP_X + LCD_CELL_PAD_X;
-    int cell_h = 8 * (LCD_PIX_H + LCD_GAP_Y) - LCD_GAP_Y + LCD_CELL_PAD_Y;
-    int tw = LCD_MARGIN * 2 + cfg->cols * cell_w;
-    int th = LCD_MARGIN * 2 + cfg->rows * cell_h;
+  /* Drawing area */
+  int cell_w = 5 * (LCD_PIX_W + LCD_GAP_X) - LCD_GAP_X + LCD_CELL_PAD_X;
+  int cell_h = 8 * (LCD_PIX_H + LCD_GAP_Y) - LCD_GAP_Y + LCD_CELL_PAD_Y;
+  int tw = LCD_MARGIN * 2 + cfg->cols * cell_w;
+  int th = LCD_MARGIN * 2 + cfg->rows * cell_h;
 
-    GtkWidget *da = gtk_drawing_area_new();
-    gtk_widget_set_size_request(da, tw, th);
-    gtk_widget_set_hexpand(da, FALSE);
-    gtk_widget_set_halign(da, GTK_ALIGN_START);
-    gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(da), draw_lcd, w, NULL);
-    gtk_box_append(GTK_BOX(panel), da);
-    ui->drawing = da;
+  GtkWidget *da = gtk_drawing_area_new();
+  gtk_widget_set_size_request(da, tw, th);
+  gtk_widget_set_hexpand(da, FALSE);
+  gtk_widget_set_halign(da, GTK_ALIGN_START);
+  gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(da), draw_lcd, w, NULL);
+  gtk_box_append(GTK_BOX(panel), da);
+  ui->drawing = da;
 
-    return panel;
+  return panel;
 }
 
 /* -------------------------------------------------------------------------
  * Public API
  * ------------------------------------------------------------------------- */
 void lcd_ui_update(struct sim_win_t *w) {
-    lcd_ui_t *ui = &w->lcd_ui;
-    if (!ui->cfg.enabled) return;
+  lcd_ui_t *ui = &w->lcd_ui;
+  if (!ui->cfg.enabled)
+    return;
 
-    /* Redraw embedded panel */
-    if (ui->drawing)
-        gtk_widget_queue_draw(ui->drawing);
+  /* Redraw embedded panel */
+  if (ui->drawing)
+    gtk_widget_queue_draw(ui->drawing);
 
-    /* Redraw pop-out if open */
-    if (ui->popout_drawing)
-        gtk_widget_queue_draw(ui->popout_drawing);
+  /* Redraw pop-out if open */
+  if (ui->popout_drawing)
+    gtk_widget_queue_draw(ui->popout_drawing);
 }
 
 void lcd_ui_reset(struct sim_win_t *w) {
-    lcd_reset(&w->lcd_ui.lcd);
-    w->lcd_ui.e_last = false;
+  lcd_reset(&w->lcd_ui.lcd);
+  w->lcd_ui.e_last = false;
 }
 
 void lcd_ui_apply_cfg(struct sim_win_t *w, const lcd_cfg_t *cfg) {
-    lcd_ui_t *ui = &w->lcd_ui;
-    ui->cfg = *cfg;
-    lcd_init(&ui->lcd, cfg->cols, cfg->rows, ui->lcd.cpu_hz);
-    lcd_set_strict(&ui->lcd, cfg->strict);
-    ui->lcd.is_4bit_iface = (cfg->bus_width == 4);
-    ui->e_last = false;
-    /* Show or hide the LCD panel widget */
-    if (w->lcd_panel_widget)
-        gtk_widget_set_visible(w->lcd_panel_widget, cfg->enabled);
-    /* Update middle column visibility */
-    if (w->bottom_col_mid) {
-        bool mid = cfg->enabled || w->sd_ui.cfg.enabled;
-        gtk_widget_set_visible(w->bottom_col_mid, mid);
-        if (w->bottom_col_sep) gtk_widget_set_visible(w->bottom_col_sep, mid);
-        if (w->bottom_mid_sep)
-            gtk_widget_set_visible(w->bottom_mid_sep,
-                                   cfg->enabled && w->sd_ui.cfg.enabled);
-    }
+  lcd_ui_t *ui = &w->lcd_ui;
+  ui->cfg = *cfg;
+  lcd_init(&ui->lcd, cfg->cols, cfg->rows, ui->lcd.cpu_hz);
+  lcd_set_strict(&ui->lcd, cfg->strict);
+  ui->lcd.is_4bit_iface = (cfg->bus_width == 4);
+  ui->e_last = false;
+  /* Show or hide the LCD panel widget */
+  if (w->lcd_panel_widget)
+    gtk_widget_set_visible(w->lcd_panel_widget, cfg->enabled);
+  /* Update middle column visibility */
+  if (w->bottom_col_mid) {
+    bool mid = cfg->enabled || w->sd_ui.cfg.enabled;
+    gtk_widget_set_visible(w->bottom_col_mid, mid);
+    if (w->bottom_col_sep)
+      gtk_widget_set_visible(w->bottom_col_sep, mid);
+    if (w->bottom_mid_sep)
+      gtk_widget_set_visible(w->bottom_mid_sep,
+                             cfg->enabled && w->sd_ui.cfg.enabled);
+  }
 
-    /* Update mode label */
-    if (ui->lbl_mode) {
-        char mode_str[64];
-        snprintf(mode_str, sizeof(mode_str), "%d×%d  %d-bit  %s",
-                 cfg->cols, cfg->rows, cfg->bus_width,
-                 cfg->strict ? "Strict" : "Permissive");
-        gtk_label_set_text(GTK_LABEL(ui->lbl_mode), mode_str);
-    }
+  /* Update mode label */
+  if (ui->lbl_mode) {
+    char mode_str[64];
+    snprintf(mode_str, sizeof(mode_str), "%dx%d  %d-bit  %s", cfg->cols,
+             cfg->rows, cfg->bus_width, cfg->strict ? "Strict" : "Permissive");
+    gtk_label_set_text(GTK_LABEL(ui->lbl_mode), mode_str);
+  }
 }
 
 void lcd_ui_set_cpu_hz(struct sim_win_t *w, uint64_t cpu_hz) {
-    lcd_set_cpu_hz(&w->lcd_ui.lcd, cpu_hz);
+  lcd_set_cpu_hz(&w->lcd_ui.lcd, cpu_hz);
 }
 
 /* ---------------------------------------------------------------------------
@@ -646,8 +664,8 @@ static void sim_take_rom_snapshot(sim_win_t *w) {
 
 static uint8_t rom_range_rd(uint32_t addr, void *ud) {
   typeof(((sim_win_t *)NULL)->rom_ud[0]) *ru = ud;
-  sim_win_t *w   = ru->w;
-  int        idx = ru->idx;
+  sim_win_t *w = ru->w;
+  int idx = ru->idx;
   const profile_rom_t *r = &w->profile.rom[idx];
   uint16_t a = addr & 0xFFFF;
 
@@ -665,8 +683,8 @@ static uint8_t rom_range_rd(uint32_t addr, void *ud) {
 
 static void rom_range_wr(uint32_t addr, uint8_t val, void *ud) {
   typeof(((sim_win_t *)NULL)->rom_ud[0]) *ru = ud;
-  sim_win_t *w  = ru->w;
-  int        idx = ru->idx;
+  sim_win_t *w = ru->w;
+  int idx = ru->idx;
   const profile_rom_t *r = &w->profile.rom[idx];
 
   if (!r->rw_state) {
@@ -676,8 +694,18 @@ static void rom_range_wr(uint32_t addr, uint8_t val, void *ud) {
   /* rw_state=1: RAM overlay — writes are lost (hardware behaviour) */
 }
 
+static void acia_sync_controls(sim_win_t *w);
+
 static void sim_apply_profile(sim_win_t *w, const simprofile_t *prof,
                               const simcfg_t *cfg) {
+  simcfg_t effective = cfg ? *cfg : w->cfg;
+  if (prof->acia_model >= 0) effective.acia_model = (acia_model_t)prof->acia_model;
+  if (prof->acia_tx_bug >= 0) effective.acia_w65c51n_tx_fault = prof->acia_tx_bug != 0;
+  if (prof->acia_transport >= 0) effective.acia_transport = prof->acia_transport;
+  if (prof->acia_tcp_port) effective.acia_tcp_port = prof->acia_tcp_port;
+  if (prof->acia_serial_device[0])
+    snprintf(effective.acia_serial_device,sizeof(effective.acia_serial_device),"%s",prof->acia_serial_device);
+  cfg = &effective;
   /* Copy profile into window */
   w->profile = *prof;
   simprofile_reset_locks(&w->profile);
@@ -696,12 +724,13 @@ static void sim_apply_profile(sim_win_t *w, const simprofile_t *prof,
    * searches in reverse) finds them first. */
   for (int i = 0; i < PROFILE_ROM_MAX; i++) {
     const profile_rom_t *r = &p->rom[i];
-    if (!r->enabled) continue;
-    w->rom_ud[i].w   = w;
+    if (!r->enabled)
+      continue;
+    w->rom_ud[i].w = w;
     w->rom_ud[i].idx = i;
     uint32_t sz = (uint32_t)(r->to - r->from + 1);
-    mem_add_io(&w->sim.mem, r->from, sz,
-               rom_range_rd, rom_range_wr, &w->rom_ud[i], "ROM");
+    mem_add_io(&w->sim.mem, r->from, sz, rom_range_rd, rom_range_wr,
+               &w->rom_ud[i], "ROM");
   }
 
   /* VIA1: mapping alone is not enough; the execution loop gates its clock. */
@@ -717,23 +746,29 @@ static void sim_apply_profile(sim_win_t *w, const simprofile_t *prof,
   /* ACIA */
   int cpu_hz = 1000000;
   if (cfg) {
-    const long hz_table[] = {2000000, 1000000, 512000, 128000, 32000, 8000, 2000,
-                             512,     128,     32,     8,      2,    1,    0};
+    const long hz_table[] = {2000000, 1000000, 512000, 128000, 32000,
+                             8000,    2000,    512,    128,    32,
+                             8,       2,       1,      0};
     int spd = (int)cfg->speed;
     if (spd >= 0 && spd <= 13)
       cpu_hz = (int)hz_table[spd];
   }
   acia_init(&w->sim.acia, cfg ? cfg->acia_tcp_port : 6551, cpu_hz, acia_irq_cb,
             w);
+  acia_set_model(&w->sim.acia, cfg ? cfg->acia_model : w->cfg.acia_model);
+  acia_set_w65c51n_tx_fault(&w->sim.acia, cfg ? cfg->acia_w65c51n_tx_fault : w->cfg.acia_w65c51n_tx_fault);
+  w->sim.acia.transport = cfg->acia_transport ? ACIA_TRANSPORT_SERIAL : ACIA_TRANSPORT_TCP;
+  snprintf(w->sim.acia.serial_path,sizeof(w->sim.acia.serial_path),"%s",cfg->acia_serial_device);
   w->sim.acia_enable = p->acia.enabled;
   if (p->acia.enabled) {
     mem_add_io(&w->sim.mem, p->acia.addr, 4, acia_rd, acia_wr, w, "ACIA");
     if (cfg && cfg->acia_transport) {
       /* Real devices are only opened by an explicit Connect click. */
       w->sim.acia.transport = ACIA_TRANSPORT_SERIAL;
-      snprintf(w->sim.acia.serial_path, sizeof(w->sim.acia.serial_path),
-               "%s", cfg->acia_serial_device);
-    } else acia_tcp_open(&w->sim.acia);
+      snprintf(w->sim.acia.serial_path, sizeof(w->sim.acia.serial_path), "%s",
+               cfg->acia_serial_device);
+    } else
+      acia_tcp_open(&w->sim.acia);
   }
 
   /* Simple IO (TX/RX share a 2-byte region) */
@@ -771,6 +806,7 @@ static void sim_apply_profile(sim_win_t *w, const simprofile_t *prof,
     w->cfg.simio_tx_addr = p->simio_tx.addr;
     w->cfg.simio_rx_addr = p->simio_rx.addr;
   }
+  acia_sync_controls(w);
 }
 
 static void bank_wr(uint32_t addr, uint8_t val, void *ud) {
@@ -808,8 +844,10 @@ static void acia_irq_cb(bool asserted, void *ud) {
   sim_win_t *w = (sim_win_t *)ud;
   /* Releasing ACIA IRQ must not leave the CPU IRQ line latched high.
    * Keep it asserted if either VIA still has an enabled pending interrupt. */
-  w->sim.cpu.irq = asserted ||
-      (w->sim.via_enable[0] && (w->sim.via[0].IFR & w->sim.via[0].IER & 0x7f)) ||
+  w->sim.cpu.irq =
+      asserted ||
+      (w->sim.via_enable[0] &&
+       (w->sim.via[0].IFR & w->sim.via[0].IER & 0x7f)) ||
       (w->sim.via_enable[1] && (w->sim.via[1].IFR & w->sim.via[1].IER & 0x7f));
 }
 
@@ -979,6 +1017,39 @@ static void profile_dd_rebuild(sim_win_t *w) {
   simprofile_list_free(list);
 }
 
+/* Device widgets exist even if the starting profile disables them.
+ * Apply visibility only after all profile state has been updated. */
+static void refresh_peripheral_panels(sim_win_t *w) {
+  const simprofile_t *p = &w->profile;
+  const bool via_enabled[2] = {p->via1.enabled, p->via2.enabled};
+  const unsigned via_addr[2] = {p->via1.addr, p->via2.addr};
+  for (int i = 0; i < 2; i++) {
+    if (w->via_panels[i]) {
+      char title[32];
+      snprintf(title, sizeof(title), "VIA %d  ($%04X)", i + 1, via_addr[i]);
+      gtk_frame_set_label(GTK_FRAME(w->via_panels[i]), title);
+      gtk_widget_set_visible(w->via_panels[i], via_enabled[i]);
+    }
+  }
+  if (w->acia_panel_widget)
+    gtk_widget_set_visible(w->acia_panel_widget, p->acia.enabled);
+  if (w->peripheral_row)
+    gtk_widget_set_visible(w->peripheral_row, p->via1.enabled ||
+                                                  p->via2.enabled ||
+                                                  p->acia.enabled);
+  if (w->lcd_panel_widget)
+    gtk_widget_set_visible(w->lcd_panel_widget, p->lcd.enabled);
+  if (w->sd_panel_widget)
+    gtk_widget_set_visible(w->sd_panel_widget, p->sd.enabled);
+  bool mid_visible = p->lcd.enabled || p->sd.enabled;
+  if (w->bottom_col_mid)
+    gtk_widget_set_visible(w->bottom_col_mid, mid_visible);
+  if (w->bottom_col_sep)
+    gtk_widget_set_visible(w->bottom_col_sep, mid_visible);
+  if (w->bottom_mid_sep)
+    gtk_widget_set_visible(w->bottom_mid_sep, p->lcd.enabled && p->sd.enabled);
+}
+
 /* Apply a new profile — warns if running */
 static void profile_apply(sim_win_t *w, simprofile_t *prof) {
   /* Warn if running — pause immediately, user can reset if they want */
@@ -995,6 +1066,7 @@ static void profile_apply(sim_win_t *w, simprofile_t *prof) {
   /* Rebuild memory map */
   mem_clear_io(&w->sim.mem);
   sim_apply_profile(w, prof, &w->cfg);
+  refresh_peripheral_panels(w);
 
   /* Reset CPU */
   pthread_mutex_lock(&w->sim.state_lock);
@@ -1032,11 +1104,11 @@ static void profile_apply(sim_win_t *w, simprofile_t *prof) {
   sim_win_update(w);
 
   /* Persist the last-used profile filepath to sim.cfg
-   * but NOT if it's a temporary embedded profile (those are deleted after load) */
-  if (prof->filepath[0] &&
-      !strstr(prof->filepath, "_embedded.simprofile")) {
-    snprintf(w->cfg.last_profile, sizeof(w->cfg.last_profile),
-             "%s", prof->filepath);
+   * but NOT if it's a temporary embedded profile (those are deleted after load)
+   */
+  if (prof->filepath[0] && !strstr(prof->filepath, "_embedded.simprofile")) {
+    snprintf(w->cfg.last_profile, sizeof(w->cfg.last_profile), "%s",
+             prof->filepath);
     char cfgpath[1024];
     snprintf(cfgpath, sizeof(cfgpath), "%s/sim.cfg", g_get_home_dir());
     simcfg_save(&w->cfg, cfgpath);
@@ -1117,7 +1189,7 @@ static void on_profile_delete(GtkButton *b, gpointer ud) {
   GtkWidget *hdr = gtk_header_bar_new();
   gtk_header_bar_set_show_title_buttons(GTK_HEADER_BAR(hdr), FALSE);
   gtk_header_bar_set_title_widget(GTK_HEADER_BAR(hdr),
-      gtk_label_new("Delete Profile"));
+                                  gtk_label_new("Delete Profile"));
   gtk_window_set_titlebar(GTK_WINDOW(dlg), hdr);
 
   GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
@@ -1127,10 +1199,10 @@ static void on_profile_delete(GtkButton *b, gpointer ud) {
   gtk_widget_set_margin_bottom(vbox, 16);
 
   char msg[512];
-  snprintf(msg, sizeof(msg),
-           "Delete profile \"%s\"?\n\nThis will permanently remove the file:\n%s",
-           w->profile.name[0] ? w->profile.name : "(unnamed)",
-           w->profile.filepath);
+  snprintf(
+      msg, sizeof(msg),
+      "Delete profile \"%s\"?\n\nThis will permanently remove the file:\n%s",
+      w->profile.name[0] ? w->profile.name : "(unnamed)", w->profile.filepath);
   GtkWidget *lbl = gtk_label_new(msg);
   gtk_label_set_wrap(GTK_LABEL(lbl), TRUE);
   gtk_label_set_xalign(GTK_LABEL(lbl), 0.0f);
@@ -1139,7 +1211,7 @@ static void on_profile_delete(GtkButton *b, gpointer ud) {
   GtkWidget *btn_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
   gtk_widget_set_halign(btn_row, GTK_ALIGN_END);
   GtkWidget *btn_cancel = gtk_button_new_with_label("Cancel");
-  GtkWidget *btn_del    = gtk_button_new_with_label("Delete");
+  GtkWidget *btn_del = gtk_button_new_with_label("Delete");
   gtk_widget_add_css_class(btn_del, "destructive-action");
   gtk_box_append(GTK_BOX(btn_row), btn_cancel);
   gtk_box_append(GTK_BOX(btn_row), btn_del);
@@ -1152,11 +1224,11 @@ static void on_profile_delete(GtkButton *b, gpointer ud) {
   g_object_set_data(G_OBJECT(dlg), "del_win", w);
 
   g_signal_connect_swapped(btn_cancel, "clicked",
-      G_CALLBACK(gtk_window_destroy), dlg);
+                           G_CALLBACK(gtk_window_destroy), dlg);
 
   /* Delete callback */
-  g_signal_connect(btn_del, "clicked",
-      G_CALLBACK(on_profile_delete_confirmed), dlg);
+  g_signal_connect(btn_del, "clicked", G_CALLBACK(on_profile_delete_confirmed),
+                   dlg);
 
   gtk_window_present(GTK_WINDOW(dlg));
 }
@@ -1195,19 +1267,20 @@ static void on_speed_changed(GtkDropDown *dd, GParamSpec *ps, gpointer ud) {
   /* Update speed info label — warn when disasm/panel updates are reduced */
   /* Update LCD timing when speed changes */
   {
-    long hz_table2[] = {1000000, 512000, 128000, 32000, 8000, 2000, 512,
-                        128, 32, 8, 2, 1, 2000000};
+    long hz_table2[] = {1000000, 512000, 128000, 32000, 8000, 2000,   512,
+                        128,     32,     8,      2,     1,    2000000};
     lcd_ui_set_cpu_hz(w, (uint64_t)hz_table2[sel]);
-    sd_ui_set_cpu_hz(w,  (uint64_t)hz_table2[sel]);
+    sd_ui_set_cpu_hz(w, (uint64_t)hz_table2[sel]);
   }
   if (w->lbl_speed_info) {
-    const char *spd_names[] = {"2MHz","1MHz","512KHz","128KHz","32KHz","8KHz",
-                                "2KHz","512Hz","128Hz","32Hz","8Hz",
-                                "2Hz","1Hz","MAX"};
+    const char *spd_names[] = {"2MHz", "1MHz", "512KHz", "128KHz", "32KHz",
+                               "8KHz", "2KHz", "512Hz",  "128Hz",  "32Hz",
+                               "8Hz",  "2Hz",  "1Hz",    "MAX"};
     char info[64];
     bool is_fast = (sel < (guint)SIM_SPEED_2KHZ || sel == (guint)SIM_SPEED_MAX);
     if (is_fast)
-      snprintf(info, sizeof(info), "%s  \u26a0 display reduced", spd_names[sel]);
+      snprintf(info, sizeof(info), "%s  \u26a0 display reduced",
+               spd_names[sel]);
     else
       snprintf(info, sizeof(info), "%s", spd_names[sel]);
     gtk_label_set_text(GTK_LABEL(w->lbl_speed_info), info);
@@ -1368,9 +1441,9 @@ static void on_reset(GtkButton *b, gpointer ud) {
   w->sim.paused = true;
   w->sim.do_step = false;
   w->sim.do_reset = false;
-  simprofile_reset_locks(&w->profile);   /* clear R/W and lock bits */
-  lcd_ui_reset(w);                       /* reset LCD to power-on state */
-  sd_ui_reset(w);                        /* reset SD card state machine */
+  simprofile_reset_locks(&w->profile); /* clear R/W and lock bits */
+  lcd_ui_reset(w);                     /* reset LCD to power-on state */
+  sd_ui_reset(w);                      /* reset SD card state machine */
   pthread_cond_broadcast(&w->sim.step_cond);
   pthread_mutex_unlock(&w->sim.state_lock);
 
@@ -1505,7 +1578,15 @@ static GtkWidget *build_via_panel(sim_win_t *w, int idx, const char *title) {
   gtk_widget_set_margin_end(vbox, 4);
   gtk_widget_set_margin_top(vbox, 4);
   gtk_widget_set_margin_bottom(vbox, 4);
-  gtk_frame_set_child(GTK_FRAME(frame), vbox);
+  GtkWidget *scroll = gtk_scrolled_window_new();
+  gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER,
+                                 GTK_POLICY_AUTOMATIC);
+  gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroll), 160);
+  gtk_scrolled_window_set_max_content_height(GTK_SCROLLED_WINDOW(scroll), 260);
+  gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(scroll),
+                                                   TRUE);
+  gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scroll), vbox);
+  gtk_frame_set_child(GTK_FRAME(frame), scroll);
 
   /* Use a grid so header numbers and buttons share the same column widths */
   {
@@ -1629,28 +1710,92 @@ static void acia_force_disconnect_clicked(GtkButton *button, gpointer ud) {
 static void acia_connect_clicked(GtkButton *button, gpointer ud) {
   (void)button;
   sim_win_t *w = ud;
-  bool serial = gtk_drop_down_get_selected(GTK_DROP_DOWN(w->dd_acia_transport)) == 1;
+  bool serial =
+      gtk_drop_down_get_selected(GTK_DROP_DOWN(w->dd_acia_transport)) == 1;
   const char *device = gtk_entry_buffer_get_text(
       gtk_entry_get_buffer(GTK_ENTRY(w->entry_acia_device)));
-  int port = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(w->spin_acia_port));
+  int port =
+      gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(w->spin_acia_port));
   char error[256];
   pthread_mutex_lock(&w->sim.state_lock);
   w->sim.acia.tcp_port = port;
-  bool ok = serial ? acia_serial_open(&w->sim.acia, device) : acia_tcp_open(&w->sim.acia);
+  bool ok = serial ? acia_serial_open(&w->sim.acia, device)
+                   : acia_tcp_open(&w->sim.acia);
   snprintf(error, sizeof(error), "%s", w->sim.acia.transport_error);
   pthread_mutex_unlock(&w->sim.state_lock);
+  w->profile.acia_transport = serial;
+  w->profile.acia_tcp_port = port;
+  snprintf(w->profile.acia_serial_device,sizeof(w->profile.acia_serial_device),"%s",device);
   w->cfg.acia_transport = serial;
   w->cfg.acia_tcp_port = port;
-  snprintf(w->cfg.acia_serial_device, sizeof(w->cfg.acia_serial_device), "%s", device);
+  snprintf(w->cfg.acia_serial_device, sizeof(w->cfg.acia_serial_device), "%s",
+           device);
   char cfgpath[1024];
   snprintf(cfgpath, sizeof(cfgpath), "%s/sim.cfg", g_get_home_dir());
   simcfg_save(&w->cfg, cfgpath);
   if (!ok) {
-    GtkAlertDialog *dialog = gtk_alert_dialog_new("ACIA connection failed.\n%s",
-        error[0] ? error : "Check the TCP port, device path, permissions and whether another program is using it.");
+    GtkAlertDialog *dialog = gtk_alert_dialog_new(
+        "ACIA connection failed.\n%s",
+        error[0] ? error
+                 : "Check the TCP port, device path, permissions and whether "
+                   "another program is using it.");
     gtk_alert_dialog_show(dialog, GTK_WINDOW(w->window));
     g_object_unref(dialog);
   }
+}
+
+static void acia_sync_controls(sim_win_t *w) {
+  w->acia_controls_sync = true;
+  if (w->dd_acia_model)
+    gtk_drop_down_set_selected(GTK_DROP_DOWN(w->dd_acia_model), w->sim.acia.model);
+  if (w->chk_acia_tx_fault) {
+    gtk_check_button_set_active(GTK_CHECK_BUTTON(w->chk_acia_tx_fault), w->sim.acia.tx_fault_enabled);
+    gtk_widget_set_sensitive(w->chk_acia_tx_fault, w->sim.acia.model == ACIA_MODEL_W65C51N);
+  }
+  if (w->dd_acia_transport)
+    gtk_drop_down_set_selected(GTK_DROP_DOWN(w->dd_acia_transport), w->sim.acia.transport);
+  if (w->spin_acia_port)
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(w->spin_acia_port),w->sim.acia.tcp_port);
+  if (w->entry_acia_device)
+    gtk_entry_buffer_set_text(gtk_entry_get_buffer(GTK_ENTRY(w->entry_acia_device)),
+        w->profile.acia_serial_device[0] ? w->profile.acia_serial_device : w->cfg.acia_serial_device,-1);
+  w->acia_controls_sync = false;
+}
+
+static void acia_tx_fault_changed(GtkCheckButton *button, gpointer ud) {
+  sim_win_t *w = ud;
+  if (w->acia_controls_sync) return;
+  gboolean enabled = gtk_check_button_get_active(button);
+  pthread_mutex_lock(&w->sim.state_lock);
+  acia_set_w65c51n_tx_fault(&w->sim.acia, enabled);
+  pthread_mutex_unlock(&w->sim.state_lock);
+  w->cfg.acia_w65c51n_tx_fault = enabled;
+  w->profile.acia_tx_bug = enabled;
+  char cfgpath[1024];
+  snprintf(cfgpath, sizeof(cfgpath), "%s/sim.cfg", g_get_home_dir());
+  simcfg_save(&w->cfg, cfgpath);
+}
+
+static void acia_model_changed(GtkDropDown *dropdown, GParamSpec *ps,
+                               gpointer ud) {
+  (void)ps;
+  sim_win_t *w = ud;
+  if (w->acia_controls_sync) return;
+  guint selected = gtk_drop_down_get_selected(dropdown);
+  if (selected > 2)
+    return;
+  acia_model_t model = (acia_model_t)selected;
+  gboolean fault = gtk_check_button_get_active(GTK_CHECK_BUTTON(w->chk_acia_tx_fault));
+  pthread_mutex_lock(&w->sim.state_lock);
+  acia_set_model(&w->sim.acia, model);
+  acia_set_w65c51n_tx_fault(&w->sim.acia, fault);
+  pthread_mutex_unlock(&w->sim.state_lock);
+  w->cfg.acia_model = model;
+  w->profile.acia_model = model;
+  gtk_widget_set_sensitive(w->chk_acia_tx_fault, model == ACIA_MODEL_W65C51N);
+  char cfgpath[1024];
+  snprintf(cfgpath, sizeof(cfgpath), "%s/sim.cfg", g_get_home_dir());
+  simcfg_save(&w->cfg, cfgpath);
 }
 
 static GtkWidget *build_acia_panel(sim_win_t *w) {
@@ -1660,7 +1805,15 @@ static GtkWidget *build_acia_panel(sim_win_t *w) {
   gtk_widget_set_margin_end(vbox, 4);
   gtk_widget_set_margin_top(vbox, 4);
   gtk_widget_set_margin_bottom(vbox, 4);
-  gtk_frame_set_child(GTK_FRAME(frame), vbox);
+  GtkWidget *scroll = gtk_scrolled_window_new();
+  gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER,
+                                 GTK_POLICY_AUTOMATIC);
+  gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroll), 160);
+  gtk_scrolled_window_set_max_content_height(GTK_SCROLLED_WINDOW(scroll), 260);
+  gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(scroll),
+                                                   TRUE);
+  gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scroll), vbox);
+  gtk_frame_set_child(GTK_FRAME(frame), scroll);
 
   w->lbl_acia_settings = gtk_label_new("9600 8N1");
   gtk_widget_add_css_class(w->lbl_acia_settings, "reg-val");
@@ -1683,34 +1836,73 @@ static GtkWidget *build_acia_panel(sim_win_t *w) {
   gtk_box_append(GTK_BOX(vbox), w->lbl_acia_transport);
   gtk_box_append(GTK_BOX(vbox), w->lbl_acia_conn);
 
+  gtk_box_append(GTK_BOX(vbox), gtk_label_new("ACIA model:"));
+  GtkWidget *model_select = gtk_drop_down_new_from_strings(
+      (const char *[]){"Generic 6551", "W65C51S", "W65C51N", NULL});
+  gtk_drop_down_set_selected(GTK_DROP_DOWN(model_select),
+                             (guint)w->cfg.acia_model);
+  gtk_widget_set_tooltip_text(
+      model_select,
+      "Generic / W65C51S: readiness polling, parity and basic TX IRQ. W65C51N: "
+      "optional transmit fault, "
+      "unbuffered TX approximation, no parity and no TX IRQ. Reset the program "
+      "after switching. "
+      "W65C51N writes need baud-dependent pacing, including the final byte.");
+  g_signal_connect(model_select, "notify::selected",
+                   G_CALLBACK(acia_model_changed), w);
+  gtk_box_append(GTK_BOX(vbox), model_select);
+  w->dd_acia_model = model_select;
+
+  w->chk_acia_tx_fault = gtk_check_button_new_with_label("Simulate transmit bug");
+  gtk_check_button_set_active(GTK_CHECK_BUTTON(w->chk_acia_tx_fault),
+                              w->cfg.acia_w65c51n_tx_fault);
+  gtk_widget_set_sensitive(w->chk_acia_tx_fault,
+                            w->cfg.acia_model == ACIA_MODEL_W65C51N);
+  gtk_widget_set_tooltip_text(w->chk_acia_tx_fault,
+      "W65C51N only: TDRE always reads ready and early writes replace pending TX. "
+      "Disable for comparison with correct TX readiness. Other model traits remain. "
+      "Reset the program after changing this option.");
+  g_signal_connect(w->chk_acia_tx_fault, "toggled",
+                     G_CALLBACK(acia_tx_fault_changed), w);
+  gtk_box_append(GTK_BOX(vbox), w->chk_acia_tx_fault);
+
   GtkWidget *connection_settings = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
   GtkWidget *connection_expander = gtk_expander_new("Connection settings");
-  gtk_expander_set_child(GTK_EXPANDER(connection_expander), connection_settings);
+  gtk_expander_set_child(GTK_EXPANDER(connection_expander),
+                         connection_settings);
   gtk_box_append(GTK_BOX(vbox), connection_expander);
   const char *modes[] = {"TCP", "Serial device", NULL};
   w->dd_acia_transport = gtk_drop_down_new_from_strings(modes);
-  gtk_drop_down_set_selected(GTK_DROP_DOWN(w->dd_acia_transport), w->cfg.acia_transport ? 1 : 0);
+  gtk_drop_down_set_selected(GTK_DROP_DOWN(w->dd_acia_transport),
+                             w->cfg.acia_transport ? 1 : 0);
   gtk_box_append(GTK_BOX(connection_settings), w->dd_acia_transport);
   w->entry_acia_device = gtk_entry_new();
   gtk_editable_set_width_chars(GTK_EDITABLE(w->entry_acia_device), 14);
-  gtk_entry_buffer_set_text(gtk_entry_get_buffer(GTK_ENTRY(w->entry_acia_device)),
+  gtk_entry_buffer_set_text(
+      gtk_entry_get_buffer(GTK_ENTRY(w->entry_acia_device)),
       w->cfg.acia_serial_device, -1);
   gtk_widget_set_tooltip_text(w->entry_acia_device,
-      "Windows: COM3 or COM10. Linux: /dev/ttyUSB0, /dev/ttyACM0 or /dev/ttyS0. "
-      "Baud/framing follow ACIA registers. Native serial uses no flow control.");
+                              "Windows: COM3 or COM10. Linux: /dev/ttyUSB0, "
+                              "/dev/ttyACM0 or /dev/ttyS0. "
+                              "Baud/framing follow ACIA registers. Native "
+                              "serial uses no flow control.");
   gtk_box_append(GTK_BOX(connection_settings), w->entry_acia_device);
   gtk_box_append(GTK_BOX(connection_settings), gtk_label_new("TCP port:"));
   w->spin_acia_port = gtk_spin_button_new_with_range(1, 65535, 1);
-  gtk_spin_button_set_value(GTK_SPIN_BUTTON(w->spin_acia_port), w->cfg.acia_tcp_port);
+  gtk_spin_button_set_value(GTK_SPIN_BUTTON(w->spin_acia_port),
+                            w->cfg.acia_tcp_port);
   gtk_box_append(GTK_BOX(connection_settings), w->spin_acia_port);
   GtkWidget *connect = gtk_button_new_with_label("Connect / Listen");
   g_signal_connect(connect, "clicked", G_CALLBACK(acia_connect_clicked), w);
   gtk_box_append(GTK_BOX(connection_settings), connect);
   w->btn_acia_disconnect = gtk_button_new_with_label("Force Disconnect");
-  g_signal_connect(w->btn_acia_disconnect, "clicked", G_CALLBACK(acia_force_disconnect_clicked), w);
+  g_signal_connect(w->btn_acia_disconnect, "clicked",
+                   G_CALLBACK(acia_force_disconnect_clicked), w);
   gtk_widget_set_tooltip_text(w->btn_acia_disconnect,
-      "Drop the TCP client but keep listening, or close and release the physical serial device.");
+                              "Drop the TCP client but keep listening, or "
+                              "close and release the physical serial device.");
   gtk_box_append(GTK_BOX(vbox), w->btn_acia_disconnect);
+  acia_sync_controls(w);
 
   return frame;
 }
@@ -1858,7 +2050,8 @@ static void install_css(void) {
  * UI update (called from GLib timer, main thread)
  * ------------------------------------------------------------------------- */
 /* ACIA status must refresh independently of expensive VIA/disassembly work.
- * Take a coherent snapshot under the simulator lock, then update GTK unlocked. */
+ * Take a coherent snapshot under the simulator lock, then update GTK unlocked.
+ */
 static void update_acia_panel(sim_win_t *w) {
   if (!w->lbl_acia_conn)
     return;
@@ -1876,17 +2069,31 @@ static void update_acia_panel(sim_win_t *w) {
   acia_format_timing(&snapshot, cpb_str, sizeof(cpb_str));
   gtk_label_set_text(GTK_LABEL(w->lbl_acia_cpb), cpb_str);
   if (w->lbl_acia_transport) {
-    char label[560];
+    char label[768];
     if (snapshot.transport == ACIA_TRANSPORT_SERIAL)
       snprintf(label, sizeof(label), "Serial: %s", snapshot.serial_path);
-    else snprintf(label, sizeof(label), "TCP :%d", snapshot.tcp_port);
+    else
+      snprintf(label, sizeof(label), "TCP :%d", snapshot.tcp_port);
+    size_t used = strlen(label);
+    snprintf(label + used, sizeof(label) - used, "\nModel: %s",
+             acia_model_name(snapshot.model));
+    if (snapshot.model == ACIA_MODEL_W65C51N) {
+      used = strlen(label);
+      snprintf(
+          label + used, sizeof(label) - used, "\nTransmit bug: %s\nEarly TX writes: %llu%s%s",
+          snapshot.tx_fault_enabled ? "ON" : "OFF",
+          (unsigned long long)snapshot.tx_overwrites,
+          (snapshot.CMD & 0x20) ? "\nParity request ignored" : "",
+          (((snapshot.CMD >> 2) & 3) == 1) ? "\nTX IRQ request ignored" : "");
+    }
     gtk_label_set_text(GTK_LABEL(w->lbl_acia_transport), label);
   }
-  gtk_widget_set_tooltip_text(w->lbl_acia_conn,
-      snapshot.transport_error[0] ? snapshot.transport_error :
-      snapshot.transport == ACIA_TRANSPORT_SERIAL ?
-        "Connected means the OS serial device is open; it does not prove a remote peer is attached." :
-        "TCP client connection state");
+  gtk_widget_set_tooltip_text(
+      w->lbl_acia_conn, snapshot.transport_error[0] ? snapshot.transport_error
+                        : snapshot.transport == ACIA_TRANSPORT_SERIAL
+                            ? "Connected means the OS serial device is open; "
+                              "it does not prove a remote peer is attached."
+                            : "TCP client connection state");
   if (w->btn_acia_disconnect)
     gtk_widget_set_sensitive(w->btn_acia_disconnect, acia_connected(&snapshot));
   if (acia_connected(&snapshot)) {
@@ -1929,20 +2136,22 @@ gboolean sim_win_update(gpointer ud) {
     /* MAX speed — full update only every 5th call (~2/sec) */
     static int max_skip = 0;
     full_update = (++max_skip >= 5);
-    if (full_update) max_skip = 0;
+    if (full_update)
+      max_skip = 0;
   } else {
     /* 1MHz-8KHz running — skip disasm+VIA normally, but force full update
      * if any VIA output has changed so the display stays current */
     full_update = false;
     for (int vi = 0; vi < 2 && !full_update; vi++) {
-      if (!w->sim.via_enable[vi]) continue;
+      if (!w->sim.via_enable[vi])
+        continue;
       via_t *v = &w->sim.via[vi];
       uint8_t pa = via_get_pa_out(v);
       uint8_t pb = via_get_pb_out(v);
       if (pa != w->via_snap[vi].pa_out || pb != w->via_snap[vi].pb_out ||
           v->DDRA != w->via_snap[vi].ddra || v->DDRB != w->via_snap[vi].ddrb ||
-          v->T1C  != w->via_snap[vi].t1c  || v->T2C  != w->via_snap[vi].t2c  ||
-          v->IFR  != w->via_snap[vi].ifr)
+          v->T1C != w->via_snap[vi].t1c || v->T2C != w->via_snap[vi].t2c ||
+          v->IFR != w->via_snap[vi].ifr)
         full_update = true;
     }
   }
@@ -2019,117 +2228,118 @@ gboolean sim_win_update(gpointer ud) {
 
   /* Disassembly — walk forward from PC (skip when running at speed) */
   if (full_update) {
-  uint32_t pc = cpu.PC & 0xFFFF;
-  /* Track M/X width state as we walk through instructions */
-  bool dis_m8 = (cpu.type != CPU_65816) || cpu.emulation || (cpu.P & 0x20);
-  bool dis_x8 = (cpu.type != CPU_65816) || cpu.emulation || (cpu.P & 0x10);
-  for (int i = 0; i < DISASM_LINES; i++) {
-    char dis[48];
-    int bytes = cpu_disasm(cpu.type, pc, cpu.PBR, mem_read, &w->sim.mem, dis,
-                           sizeof(dis), dis_m8, dis_x8);
-    char line[64];
-    snprintf(line, sizeof(line), "%c %04X  %s", i == 0 ? '>' : ' ', pc, dis);
-    gtk_label_set_text(GTK_LABEL(w->disasm_labels[i]), line);
+    uint32_t pc = cpu.PC & 0xFFFF;
+    /* Track M/X width state as we walk through instructions */
+    bool dis_m8 = (cpu.type != CPU_65816) || cpu.emulation || (cpu.P & 0x20);
+    bool dis_x8 = (cpu.type != CPU_65816) || cpu.emulation || (cpu.P & 0x10);
+    for (int i = 0; i < DISASM_LINES; i++) {
+      char dis[48];
+      int bytes = cpu_disasm(cpu.type, pc, cpu.PBR, mem_read, &w->sim.mem, dis,
+                             sizeof(dis), dis_m8, dis_x8);
+      char line[64];
+      snprintf(line, sizeof(line), "%c %04X  %s", i == 0 ? '>' : ' ', pc, dis);
+      gtk_label_set_text(GTK_LABEL(w->disasm_labels[i]), line);
 
-    /* Update m8/x8 if this instruction is REP or SEP (65816 only) */
-    if (cpu.type == CPU_65816 && !cpu.emulation) {
-      uint8_t op = mem_read(pc & 0xFFFF, &w->sim.mem);
-      uint8_t arg = mem_read((pc + 1) & 0xFFFF, &w->sim.mem);
-      if (op == 0xC2) { /* REP */
-        if (arg & 0x20)
-          dis_m8 = false;
-        if (arg & 0x10)
-          dis_x8 = false;
-      } else if (op == 0xE2) { /* SEP */
-        if (arg & 0x20)
-          dis_m8 = true;
-        if (arg & 0x10)
-          dis_x8 = true;
-      } else if (op == 0xFB) { /* XCE — entering emulation resets widths */
-        if (cpu.P & 0x01) {    /* carry set = switching to emulation */
-          dis_m8 = true;
-          dis_x8 = true;
+      /* Update m8/x8 if this instruction is REP or SEP (65816 only) */
+      if (cpu.type == CPU_65816 && !cpu.emulation) {
+        uint8_t op = mem_read(pc & 0xFFFF, &w->sim.mem);
+        uint8_t arg = mem_read((pc + 1) & 0xFFFF, &w->sim.mem);
+        if (op == 0xC2) { /* REP */
+          if (arg & 0x20)
+            dis_m8 = false;
+          if (arg & 0x10)
+            dis_x8 = false;
+        } else if (op == 0xE2) { /* SEP */
+          if (arg & 0x20)
+            dis_m8 = true;
+          if (arg & 0x10)
+            dis_x8 = true;
+        } else if (op == 0xFB) { /* XCE — entering emulation resets widths */
+          if (cpu.P & 0x01) {    /* carry set = switching to emulation */
+            dis_m8 = true;
+            dis_x8 = true;
+          }
         }
       }
+      pc = (pc + bytes) & 0xFFFF;
     }
-    pc = (pc + bytes) & 0xFFFF;
-  }
 
   } /* end full_update disassembly */
 
   /* --- VIA panels (skip when running at speed) --- */
   if (full_update) {
-  pthread_mutex_lock(&w->sim.state_lock);
-  for (int vi = 0; vi < 2; vi++) {
-    bool via_en = (vi == 0) ? (w->profile.via1.enabled || w->cfg.via1_enable)
-                            : (w->profile.via2.enabled || w->cfg.via2_enable);
-    if (!via_en)
-      continue;
-    via_ui_t *vu = &w->via_ui[vi];
-    via_t *v = &w->sim.via[vi];
+    pthread_mutex_lock(&w->sim.state_lock);
+    for (int vi = 0; vi < 2; vi++) {
+      bool via_en = (vi == 0) ? (w->profile.via1.enabled || w->cfg.via1_enable)
+                              : (w->profile.via2.enabled || w->cfg.via2_enable);
+      if (!via_en)
+        continue;
+      via_ui_t *vu = &w->via_ui[vi];
+      via_t *v = &w->sim.via[vi];
 
-    for (int p = 0; p < 2; p++) {
-      uint8_t ddr = (p == 0) ? v->DDRA : v->DDRB;
-      uint8_t out = (p == 0) ? via_get_pa_out(v) : via_get_pb_out(v);
-      uint8_t inp = (p == 0) ? v->PA_in : v->PB_in;
+      for (int p = 0; p < 2; p++) {
+        uint8_t ddr = (p == 0) ? v->DDRA : v->DDRB;
+        uint8_t out = (p == 0) ? via_get_pa_out(v) : via_get_pb_out(v);
+        uint8_t inp = (p == 0) ? v->PA_in : v->PB_in;
 
-      for (int b = 0; b < 8; b++) {
-        GtkWidget *lbl = vu->port_lbl[p][b];
-        GtkWidget *btn = vu->btn[p][b];
-        bool is_output = (ddr >> b) & 1;
-        bool val = is_output ? ((out >> b) & 1) : ((inp >> b) & 1);
-        char txt[3];
-        snprintf(txt, sizeof(txt), "%d", val ? 1 : 0);
-        gtk_label_set_text(GTK_LABEL(lbl), txt);
+        for (int b = 0; b < 8; b++) {
+          GtkWidget *lbl = vu->port_lbl[p][b];
+          GtkWidget *btn = vu->btn[p][b];
+          bool is_output = (ddr >> b) & 1;
+          bool val = is_output ? ((out >> b) & 1) : ((inp >> b) & 1);
+          char txt[3];
+          snprintf(txt, sizeof(txt), "%d", val ? 1 : 0);
+          gtk_label_set_text(GTK_LABEL(lbl), txt);
 
-        gtk_widget_remove_css_class(lbl, "bit-high");
-        gtk_widget_remove_css_class(lbl, "bit-low");
-        gtk_widget_remove_css_class(lbl, "bit-input");
+          gtk_widget_remove_css_class(lbl, "bit-high");
+          gtk_widget_remove_css_class(lbl, "bit-low");
+          gtk_widget_remove_css_class(lbl, "bit-input");
 
-        if (is_output) {
-          gtk_widget_add_css_class(lbl, val ? "bit-high" : "bit-low");
-          gtk_widget_set_sensitive(btn, FALSE);
-        } else {
-          gtk_widget_add_css_class(lbl, "bit-input");
-          gtk_widget_set_sensitive(btn, TRUE);
+          if (is_output) {
+            gtk_widget_add_css_class(lbl, val ? "bit-high" : "bit-low");
+            gtk_widget_set_sensitive(btn, FALSE);
+          } else {
+            gtk_widget_add_css_class(lbl, "bit-input");
+            gtk_widget_set_sensitive(btn, TRUE);
+          }
         }
       }
+
+      snprintf(buf, sizeof(buf), "T1:%04X", v->T1C);
+      gtk_label_set_text(GTK_LABEL(vu->t1_lbl), buf);
+      snprintf(buf, sizeof(buf), "T2:%04X", v->T2C);
+      gtk_label_set_text(GTK_LABEL(vu->t2_lbl), buf);
+      /* IFR: show set flags by name */
+      char ifr_str[32] = "IFR:";
+      if (v->IFR & 0x40)
+        strcat(ifr_str, "T1 ");
+      if (v->IFR & 0x20)
+        strcat(ifr_str, "T2 ");
+      if (v->IFR & 0x02)
+        strcat(ifr_str, "CA1 ");
+      if (v->IFR & 0x10)
+        strcat(ifr_str, "CB1 ");
+      if (v->IFR & 0x04)
+        strcat(ifr_str, "SR ");
+      if (!(v->IFR & 0x7F))
+        strcat(ifr_str, "---");
+      gtk_label_set_text(GTK_LABEL(vu->ifr_lbl), ifr_str);
     }
 
-    snprintf(buf, sizeof(buf), "T1:%04X", v->T1C);
-    gtk_label_set_text(GTK_LABEL(vu->t1_lbl), buf);
-    snprintf(buf, sizeof(buf), "T2:%04X", v->T2C);
-    gtk_label_set_text(GTK_LABEL(vu->t2_lbl), buf);
-    /* IFR: show set flags by name */
-    char ifr_str[32] = "IFR:";
-    if (v->IFR & 0x40)
-      strcat(ifr_str, "T1 ");
-    if (v->IFR & 0x20)
-      strcat(ifr_str, "T2 ");
-    if (v->IFR & 0x02)
-      strcat(ifr_str, "CA1 ");
-    if (v->IFR & 0x10)
-      strcat(ifr_str, "CB1 ");
-    if (v->IFR & 0x04)
-      strcat(ifr_str, "SR ");
-    if (!(v->IFR & 0x7F))
-      strcat(ifr_str, "---");
-    gtk_label_set_text(GTK_LABEL(vu->ifr_lbl), ifr_str);
-  }
-
-  /* Update VIA snapshots after drawing so next tick detects new changes */
-  for (int vi = 0; vi < 2; vi++) {
-    if (!w->sim.via_enable[vi]) continue;
-    via_t *v = &w->sim.via[vi];
-    w->via_snap[vi].pa_out = via_get_pa_out(v);
-    w->via_snap[vi].pb_out = via_get_pb_out(v);
-    w->via_snap[vi].ddra   = v->DDRA;
-    w->via_snap[vi].ddrb   = v->DDRB;
-    w->via_snap[vi].t1c    = v->T1C;
-    w->via_snap[vi].t2c    = v->T2C;
-    w->via_snap[vi].ifr    = v->IFR;
-  }
-  pthread_mutex_unlock(&w->sim.state_lock);
+    /* Update VIA snapshots after drawing so next tick detects new changes */
+    for (int vi = 0; vi < 2; vi++) {
+      if (!w->sim.via_enable[vi])
+        continue;
+      via_t *v = &w->sim.via[vi];
+      w->via_snap[vi].pa_out = via_get_pa_out(v);
+      w->via_snap[vi].pb_out = via_get_pb_out(v);
+      w->via_snap[vi].ddra = v->DDRA;
+      w->via_snap[vi].ddrb = v->DDRB;
+      w->via_snap[vi].t1c = v->T1C;
+      w->via_snap[vi].t2c = v->T2C;
+      w->via_snap[vi].ifr = v->IFR;
+    }
+    pthread_mutex_unlock(&w->sim.state_lock);
   } /* end full_update VIA */
 
   update_acia_panel(w);
@@ -2137,7 +2347,6 @@ gboolean sim_win_update(gpointer ud) {
   /* Update LCD panel */
   lcd_ui_update(w);
   sd_ui_update(w);
-
 
   /* Keep the timer alive as long as the window is open.
    * We only remove it in on_close() / sim_win_destroy().
@@ -2202,16 +2411,17 @@ typedef struct {
   GtkWidget *e_bwin, *e_bwsz, *spn_banks;
   /* LCD */
   GtkWidget *chk_lcd;
-  GtkWidget *dd_lcd_bus;    /* 4 or 8 bit */
+  GtkWidget *dd_lcd_bus; /* 4 or 8 bit */
   GtkWidget *spn_lcd_cols;
   GtkWidget *spn_lcd_rows;
   GtkWidget *chk_lcd_strict;
   GtkWidget *e_lcd_rs, *e_lcd_rw, *e_lcd_e;
   GtkWidget *e_lcd_d[8];
-  GtkWidget *lcd_d03_row;   /* D0-D3 row — hidden in 4-bit mode */
+  GtkWidget *lcd_d03_row; /* D0-D3 row — hidden in 4-bit mode */
   /* SD card */
   GtkWidget *chk_sd;
   GtkWidget *chk_sd_strict;
+  GtkWidget *chk_sd_read_only;
   GtkWidget *e_sd_sck, *e_sd_mosi, *e_sd_miso, *e_sd_cs;
   GtkWidget *e_sd_image;
   /* CPU options */
@@ -2221,7 +2431,8 @@ typedef struct {
 static void on_lcd_bus_changed(GtkDropDown *dd, GParamSpec *ps, gpointer ud) {
   (void)ps;
   EdCtx *ctx = (EdCtx *)ud;
-  if (!ctx || !ctx->lcd_d03_row) return;
+  if (!ctx || !ctx->lcd_d03_row)
+    return;
   bool is4bit = gtk_drop_down_get_selected(dd) == 1;
   gtk_widget_set_visible(ctx->lcd_d03_row, !is4bit);
 }
@@ -2251,7 +2462,8 @@ static void ed_read_fields(EdCtx *ctx) {
     {
       guint bsel = gtk_drop_down_get_selected(GTK_DROP_DOWN(ctx->rom_bank[i]));
       p->rom[i].bank = (bsel == 0 || bsel == GTK_INVALID_LIST_POSITION)
-                       ? -1 : (int)(bsel - 1);
+                           ? -1
+                           : (int)(bsel - 1);
     }
     /* rw_bit and lock_bit: plain text entries, parse as int */
     {
@@ -2296,21 +2508,28 @@ static void ed_read_fields(EdCtx *ctx) {
       (uint8_t)gtk_spin_button_get_value(GTK_SPIN_BUTTON(ctx->spn_banks));
 
   /* LCD */
-  p->lcd.enabled   = gtk_check_button_get_active(GTK_CHECK_BUTTON(ctx->chk_lcd));
-  p->lcd.bus_width = (gtk_drop_down_get_selected(GTK_DROP_DOWN(ctx->dd_lcd_bus)) == 1) ? 4 : 8;
-  p->lcd.cols      = (int)gtk_spin_button_get_value(GTK_SPIN_BUTTON(ctx->spn_lcd_cols));
-  p->lcd.rows      = (int)gtk_spin_button_get_value(GTK_SPIN_BUTTON(ctx->spn_lcd_rows));
-  p->lcd.strict    = gtk_check_button_get_active(GTK_CHECK_BUTTON(ctx->chk_lcd_strict));
+  p->lcd.enabled = gtk_check_button_get_active(GTK_CHECK_BUTTON(ctx->chk_lcd));
+  p->lcd.bus_width =
+      (gtk_drop_down_get_selected(GTK_DROP_DOWN(ctx->dd_lcd_bus)) == 1) ? 4 : 8;
+  p->lcd.cols =
+      (int)gtk_spin_button_get_value(GTK_SPIN_BUTTON(ctx->spn_lcd_cols));
+  p->lcd.rows =
+      (int)gtk_spin_button_get_value(GTK_SPIN_BUTTON(ctx->spn_lcd_rows));
+  p->lcd.strict =
+      gtk_check_button_get_active(GTK_CHECK_BUTTON(ctx->chk_lcd_strict));
   {
-    const char *rs = gtk_entry_buffer_get_text(gtk_entry_get_buffer(GTK_ENTRY(ctx->e_lcd_rs)));
-    const char *rw = gtk_entry_buffer_get_text(gtk_entry_get_buffer(GTK_ENTRY(ctx->e_lcd_rw)));
-    const char *e  = gtk_entry_buffer_get_text(gtk_entry_get_buffer(GTK_ENTRY(ctx->e_lcd_e)));
+    const char *rs = gtk_entry_buffer_get_text(
+        gtk_entry_get_buffer(GTK_ENTRY(ctx->e_lcd_rs)));
+    const char *rw = gtk_entry_buffer_get_text(
+        gtk_entry_get_buffer(GTK_ENTRY(ctx->e_lcd_rw)));
+    const char *e = gtk_entry_buffer_get_text(
+        gtk_entry_get_buffer(GTK_ENTRY(ctx->e_lcd_e)));
     lcd_pin_parse(rs, &p->lcd.rs);
     lcd_pin_parse(rw, &p->lcd.rw);
-    lcd_pin_parse(e,  &p->lcd.e);
+    lcd_pin_parse(e, &p->lcd.e);
     if (p->lcd.bus_width == 4) {
       /* 4-bit mode: e_lcd_d[4-7] are the visible D4-D7 entries -> data[0-3] */
-      for (int _i = 4; _i < 8; _i++)  {
+      for (int _i = 4; _i < 8; _i++) {
         const char *d = gtk_entry_buffer_get_text(
             gtk_entry_get_buffer(GTK_ENTRY(ctx->e_lcd_d[_i])));
         lcd_pin_parse(d, &p->lcd.data[_i - 4]);
@@ -2327,21 +2546,29 @@ static void ed_read_fields(EdCtx *ctx) {
   /* SD card */
   if (ctx->chk_sd)
     p->sd.enabled = gtk_check_button_get_active(GTK_CHECK_BUTTON(ctx->chk_sd));
+  if (ctx->chk_sd_read_only)
+    p->sd.read_only = gtk_check_button_get_active(GTK_CHECK_BUTTON(ctx->chk_sd_read_only));
   if (ctx->chk_sd_strict)
-    p->sd.strict = gtk_check_button_get_active(GTK_CHECK_BUTTON(ctx->chk_sd_strict));
+    p->sd.strict =
+        gtk_check_button_get_active(GTK_CHECK_BUTTON(ctx->chk_sd_strict));
   if (ctx->e_sd_sck)
     spi_pin_parse(gtk_entry_buffer_get_text(
-        gtk_entry_get_buffer(GTK_ENTRY(ctx->e_sd_sck))), &p->sd.sck);
+                      gtk_entry_get_buffer(GTK_ENTRY(ctx->e_sd_sck))),
+                  &p->sd.sck);
   if (ctx->e_sd_mosi)
     spi_pin_parse(gtk_entry_buffer_get_text(
-        gtk_entry_get_buffer(GTK_ENTRY(ctx->e_sd_mosi))), &p->sd.mosi);
+                      gtk_entry_get_buffer(GTK_ENTRY(ctx->e_sd_mosi))),
+                  &p->sd.mosi);
   if (ctx->e_sd_miso)
     spi_pin_parse(gtk_entry_buffer_get_text(
-        gtk_entry_get_buffer(GTK_ENTRY(ctx->e_sd_miso))), &p->sd.miso);
+                      gtk_entry_get_buffer(GTK_ENTRY(ctx->e_sd_miso))),
+                  &p->sd.miso);
   if (ctx->e_sd_cs)
     spi_pin_parse(gtk_entry_buffer_get_text(
-        gtk_entry_get_buffer(GTK_ENTRY(ctx->e_sd_cs))), &p->sd.cs);
+                      gtk_entry_get_buffer(GTK_ENTRY(ctx->e_sd_cs))),
+                  &p->sd.cs);
   if (ctx->e_sd_image) {
+    p->sd.image_specified = true;
     const char *img = gtk_entry_buffer_get_text(
         gtk_entry_get_buffer(GTK_ENTRY(ctx->e_sd_image)));
     if (img && img[0] && strcmp(img, "(none)") != 0)
@@ -2380,9 +2607,9 @@ static void on_profile_ed_save(GtkButton *b, gpointer ud) {
  * Returns true on success.  On failure shows an error dialog and returns false.
  * Does NOT close the editor window. */
 static bool profile_ed_save_and_apply(GtkWidget *dlg, void *ud) {
-  EdCtx        *ctx = (EdCtx *)ud;
+  EdCtx *ctx = (EdCtx *)ud;
   simprofile_t *p = ctx->prof;
-  sim_win_t    *w = ctx->win;
+  sim_win_t *w = ctx->win;
 
   /* Determine save directory */
   const char *dir;
@@ -2400,10 +2627,12 @@ static bool profile_ed_save_and_apply(GtkWidget *dlg, void *ud) {
       char caed[512];
       snprintf(caed, sizeof(caed), "%s/.6502caed", home);
       struct stat _st;
-      if (stat(caed, &_st) != 0) SIM_MKDIR(caed);
+      if (stat(caed, &_st) != 0)
+        SIM_MKDIR(caed);
     }
     struct stat _st2;
-    if (stat(dir, &_st2) != 0) SIM_MKDIR(dir);
+    if (stat(dir, &_st2) != 0)
+      SIM_MKDIR(dir);
   }
 
   /* Determine save path:
@@ -2418,12 +2647,14 @@ static bool profile_ed_save_and_apply(GtkWidget *dlg, void *ud) {
     int fi = 0;
     for (const char *s = p->name; *s && fi < 120; s++) {
       char ch = *s;
-      if (ch == ' ') ch = '_';
+      if (ch == ' ')
+        ch = '_';
       if (isalnum((unsigned char)ch) || ch == '_' || ch == '-')
         fname[fi++] = ch;
     }
     fname[fi] = 0;
-    if (!fi) snprintf(fname, sizeof(fname), "profile");
+    if (!fi)
+      snprintf(fname, sizeof(fname), "profile");
     snprintf(path, sizeof(path), "%s/%s.simprofile", dir, fname);
   }
 
@@ -2450,10 +2681,11 @@ static void on_profile_ed_apply(GtkButton *b, gpointer ud) {
   const char *overlap = simprofile_check_overlaps(ctx->prof);
   if (overlap) {
     char msg[320];
-    snprintf(msg, sizeof(msg),
-             "Warning: ROM ranges overlap: %s\n\n"
-             "Applying anyway — reads from overlapping areas may be unpredictable.",
-             overlap);
+    snprintf(
+        msg, sizeof(msg),
+        "Warning: ROM ranges overlap: %s\n\n"
+        "Applying anyway — reads from overlapping areas may be unpredictable.",
+        overlap);
     GtkAlertDialog *warn = gtk_alert_dialog_new("%s", msg);
     gtk_alert_dialog_show(warn, GTK_WINDOW(dlg));
     g_object_unref(warn);
@@ -2493,19 +2725,22 @@ typedef struct {
 
 static void pin_picker_write(PinPickerCtx *ctx) {
   char buf[8];
-  snprintf(buf, sizeof(buf), "%d%c%d",
-           ctx->via, ctx->port == 0 ? 'A' : 'B', ctx->bit);
-  gtk_entry_buffer_set_text(
-      gtk_entry_get_buffer(GTK_ENTRY(ctx->entry)), buf, -1);
+  snprintf(buf, sizeof(buf), "%d%c%d", ctx->via, ctx->port == 0 ? 'A' : 'B',
+           ctx->bit);
+  gtk_entry_buffer_set_text(gtk_entry_get_buffer(GTK_ENTRY(ctx->entry)), buf,
+                            -1);
 }
 
 static void pin_picker_via(GtkButton *btn, gpointer ud) {
   PinPickerCtx *ctx = (PinPickerCtx *)ud;
   for (int i = 0; i < 2; i++) {
     bool active = (GTK_WIDGET(btn) == ctx->btn_via[i]);
-    if (active) ctx->via = i + 1;
-    if (active) gtk_widget_add_css_class(ctx->btn_via[i], "suggested-action");
-    else        gtk_widget_remove_css_class(ctx->btn_via[i], "suggested-action");
+    if (active)
+      ctx->via = i + 1;
+    if (active)
+      gtk_widget_add_css_class(ctx->btn_via[i], "suggested-action");
+    else
+      gtk_widget_remove_css_class(ctx->btn_via[i], "suggested-action");
   }
   pin_picker_write(ctx);
 }
@@ -2514,9 +2749,12 @@ static void pin_picker_port(GtkButton *btn, gpointer ud) {
   PinPickerCtx *ctx = (PinPickerCtx *)ud;
   for (int i = 0; i < 2; i++) {
     bool active = (GTK_WIDGET(btn) == ctx->btn_port[i]);
-    if (active) ctx->port = i;
-    if (active) gtk_widget_add_css_class(ctx->btn_port[i], "suggested-action");
-    else        gtk_widget_remove_css_class(ctx->btn_port[i], "suggested-action");
+    if (active)
+      ctx->port = i;
+    if (active)
+      gtk_widget_add_css_class(ctx->btn_port[i], "suggested-action");
+    else
+      gtk_widget_remove_css_class(ctx->btn_port[i], "suggested-action");
   }
   pin_picker_write(ctx);
 }
@@ -2525,24 +2763,27 @@ static void pin_picker_bit(GtkButton *btn, gpointer ud) {
   PinPickerCtx *ctx = (PinPickerCtx *)ud;
   for (int i = 0; i < 8; i++) {
     bool active = (GTK_WIDGET(btn) == ctx->btn_bit[i]);
-    if (active) ctx->bit = i;
-    if (active) gtk_widget_add_css_class(ctx->btn_bit[i], "suggested-action");
-    else        gtk_widget_remove_css_class(ctx->btn_bit[i], "suggested-action");
+    if (active)
+      ctx->bit = i;
+    if (active)
+      gtk_widget_add_css_class(ctx->btn_bit[i], "suggested-action");
+    else
+      gtk_widget_remove_css_class(ctx->btn_bit[i], "suggested-action");
   }
   pin_picker_write(ctx);
 }
 
 static void show_pin_picker(GtkWidget *entry, GtkWidget *parent_win,
                             const char *pin_name) {
-  const char *cur = gtk_entry_buffer_get_text(
-      gtk_entry_get_buffer(GTK_ENTRY(entry)));
+  const char *cur =
+      gtk_entry_buffer_get_text(gtk_entry_get_buffer(GTK_ENTRY(entry)));
   lcd_pin_t pin = {1, 0, 0};
   lcd_pin_parse(cur, &pin);
 
   PinPickerCtx *ctx = g_new0(PinPickerCtx, 1);
-  ctx->via   = (pin.via >= 1 && pin.via <= 2) ? pin.via : 1;
-  ctx->port  = (pin.port == 0 || pin.port == 1) ? pin.port : 0;
-  ctx->bit   = (pin.bit >= 0 && pin.bit <= 7) ? pin.bit : 0;
+  ctx->via = (pin.via >= 1 && pin.via <= 2) ? pin.via : 1;
+  ctx->port = (pin.port == 0 || pin.port == 1) ? pin.port : 0;
+  ctx->bit = (pin.bit >= 0 && pin.bit <= 7) ? pin.bit : 0;
   ctx->entry = entry;
 
   char title[64];
@@ -2578,8 +2819,8 @@ static void show_pin_picker(GtkWidget *entry, GtkWidget *parent_win,
     gtk_widget_set_size_request(ctx->btn_via[i], 72, -1);
     if (ctx->via == i + 1)
       gtk_widget_add_css_class(ctx->btn_via[i], "suggested-action");
-    g_signal_connect(ctx->btn_via[i], "clicked",
-                     G_CALLBACK(pin_picker_via), ctx);
+    g_signal_connect(ctx->btn_via[i], "clicked", G_CALLBACK(pin_picker_via),
+                     ctx);
     gtk_box_append(GTK_BOX(via_box), ctx->btn_via[i]);
   }
   gtk_box_append(GTK_BOX(vbox), via_box);
@@ -2596,8 +2837,8 @@ static void show_pin_picker(GtkWidget *entry, GtkWidget *parent_win,
     gtk_widget_set_size_request(ctx->btn_port[i], 72, -1);
     if (ctx->port == i)
       gtk_widget_add_css_class(ctx->btn_port[i], "suggested-action");
-    g_signal_connect(ctx->btn_port[i], "clicked",
-                     G_CALLBACK(pin_picker_port), ctx);
+    g_signal_connect(ctx->btn_port[i], "clicked", G_CALLBACK(pin_picker_port),
+                     ctx);
     gtk_box_append(GTK_BOX(port_box), ctx->btn_port[i]);
   }
   gtk_box_append(GTK_BOX(vbox), port_box);
@@ -2615,8 +2856,8 @@ static void show_pin_picker(GtkWidget *entry, GtkWidget *parent_win,
     gtk_widget_set_size_request(ctx->btn_bit[i], 36, -1);
     if (ctx->bit == i)
       gtk_widget_add_css_class(ctx->btn_bit[i], "suggested-action");
-    g_signal_connect(ctx->btn_bit[i], "clicked",
-                     G_CALLBACK(pin_picker_bit), ctx);
+    g_signal_connect(ctx->btn_bit[i], "clicked", G_CALLBACK(pin_picker_bit),
+                     ctx);
     gtk_box_append(GTK_BOX(bit_box), ctx->btn_bit[i]);
   }
   gtk_box_append(GTK_BOX(vbox), bit_box);
@@ -2628,8 +2869,8 @@ static void show_pin_picker(GtkWidget *entry, GtkWidget *parent_win,
   GtkWidget *done_btn = gtk_button_new_with_label("Done");
   gtk_widget_add_css_class(done_btn, "suggested-action");
   gtk_widget_set_halign(done_btn, GTK_ALIGN_END);
-  g_signal_connect_swapped(done_btn, "clicked",
-                           G_CALLBACK(gtk_window_destroy), win);
+  g_signal_connect_swapped(done_btn, "clicked", G_CALLBACK(gtk_window_destroy),
+                           win);
   gtk_box_append(GTK_BOX(vbox), done_btn);
 
   g_object_set_data_full(G_OBJECT(win), "ppctx", ctx, g_free);
@@ -2637,7 +2878,11 @@ static void show_pin_picker(GtkWidget *entry, GtkWidget *parent_win,
   gtk_window_present(GTK_WINDOW(win));
 }
 
-typedef struct { GtkWidget *entry; GtkWidget *parent_win; char name[16]; } PinBtnData;
+typedef struct {
+  GtkWidget *entry;
+  GtkWidget *parent_win;
+  char name[16];
+} PinBtnData;
 
 static void on_pin_pick_clicked(GtkButton *btn, gpointer ud) {
   (void)btn;
@@ -2653,7 +2898,7 @@ static GtkWidget *make_pin_row(GtkWidget *entry, GtkWidget *parent_win,
   GtkWidget *btn = gtk_button_new_with_label("…");
   gtk_widget_set_tooltip_text(btn, "Pick pin mapping");
   PinBtnData *d = g_new0(PinBtnData, 1);
-  d->entry      = entry;
+  d->entry = entry;
   d->parent_win = parent_win;
   snprintf(d->name, sizeof(d->name), "%s", name);
   g_object_set_data_full(G_OBJECT(btn), "ppd", d, g_free);
@@ -2667,24 +2912,29 @@ static GtkWidget *make_pin_row(GtkWidget *entry, GtkWidget *parent_win,
  * ---------------------------------------------------------------------- */
 
 static void sd_img_update_warn(GtkWidget *entry, GtkWidget *warn) {
-  const char *path = gtk_entry_buffer_get_text(
-      gtk_entry_get_buffer(GTK_ENTRY(entry)));
+  const char *path =
+      gtk_entry_buffer_get_text(gtk_entry_get_buffer(GTK_ENTRY(entry)));
   if (path && path[0]) {
     struct stat _st;
     gtk_label_set_text(GTK_LABEL(warn),
-        stat(path, &_st) == 0 ? "" : "⚠ File not found");
+                       stat(path, &_st) == 0 ? "" : "⚠ File not found");
   } else {
     gtk_label_set_text(GTK_LABEL(warn), "");
   }
 }
 
-static void sd_browse_response_cb(GObject *src, GAsyncResult *res, gpointer ud) {
+static void sd_browse_response_cb(GObject *src, GAsyncResult *res,
+                                  gpointer ud) {
   GtkWidget *btn = GTK_WIDGET(ud);
   GtkWidget *entry = (GtkWidget *)g_object_get_data(G_OBJECT(btn), "entry");
-  GtkWidget *warn  = (GtkWidget *)g_object_get_data(G_OBJECT(btn), "warn");
+  GtkWidget *warn = (GtkWidget *)g_object_get_data(G_OBJECT(btn), "warn");
   GError *err = NULL;
   GFile *file = gtk_file_dialog_open_finish(GTK_FILE_DIALOG(src), res, &err);
-  if (!file) { if (err) g_error_free(err); return; }
+  if (!file) {
+    if (err)
+      g_error_free(err);
+    return;
+  }
   char *path = g_file_get_path(file);
   g_object_unref(file);
   if (path) {
@@ -2707,14 +2957,15 @@ static void on_sd_image_browse(GtkButton *btn, gpointer ud) {
   GListStore *filters = g_list_store_new(GTK_TYPE_FILE_FILTER);
   g_list_store_append(filters, ff);
   gtk_file_dialog_set_filters(dlg, G_LIST_MODEL(filters));
-  gtk_file_dialog_open(dlg, GTK_WINDOW(win), NULL,
-                       sd_browse_response_cb, btn);
-  g_object_unref(ff); g_object_unref(filters); g_object_unref(dlg);
+  gtk_file_dialog_open(dlg, GTK_WINDOW(win), NULL, sd_browse_response_cb, btn);
+  g_object_unref(ff);
+  g_object_unref(filters);
+  g_object_unref(dlg);
 }
 
 /* Create new image dialog context */
 typedef struct {
-  GtkWidget *entry;   /* path entry in profile editor */
+  GtkWidget *entry; /* path entry in profile editor */
   GtkWidget *warn;
   GtkWidget *dialog;
   GtkWidget *path_entry;
@@ -2727,8 +2978,10 @@ static void sd_create_ok_cb(GtkButton *b, gpointer ud) {
   const char *path = gtk_entry_buffer_get_text(
       gtk_entry_get_buffer(GTK_ENTRY(ctx->path_entry)));
   guint sel = gtk_drop_down_get_selected(GTK_DROP_DOWN(ctx->dd_size));
-  if (sel >= SD_SIZE_COUNT) sel = SD_SIZE_32MB;
-  if (!path || !path[0]) return;
+  if (sel >= SD_SIZE_COUNT)
+    sel = SD_SIZE_32MB;
+  if (!path || !path[0])
+    return;
   if (!sd_create(path, sd_size_bytes((sd_size_id_t)sel))) {
     GtkAlertDialog *ad = gtk_alert_dialog_new(
         "Failed to create image file:\n%s\n\nCheck path and disk space.", path);
@@ -2737,8 +2990,8 @@ static void sd_create_ok_cb(GtkButton *b, gpointer ud) {
     return;
   }
   /* Update the profile editor path entry */
-  gtk_entry_buffer_set_text(gtk_entry_get_buffer(GTK_ENTRY(ctx->entry)),
-                            path, -1);
+  gtk_entry_buffer_set_text(gtk_entry_get_buffer(GTK_ENTRY(ctx->entry)), path,
+                            -1);
   sd_img_update_warn(ctx->entry, ctx->warn);
   gtk_window_close(GTK_WINDOW(ctx->dialog));
 }
@@ -2746,8 +2999,8 @@ static void sd_create_ok_cb(GtkButton *b, gpointer ud) {
 static void on_sd_create_clicked(GtkButton *btn, gpointer ud) {
   (void)ud;
   GtkWidget *entry = (GtkWidget *)g_object_get_data(G_OBJECT(btn), "entry");
-  GtkWidget *warn  = (GtkWidget *)g_object_get_data(G_OBJECT(btn), "warn");
-  GtkWidget *win   = (GtkWidget *)g_object_get_data(G_OBJECT(btn), "win");
+  GtkWidget *warn = (GtkWidget *)g_object_get_data(G_OBJECT(btn), "warn");
+  GtkWidget *win = (GtkWidget *)g_object_get_data(G_OBJECT(btn), "win");
 
   GtkWidget *dlg = gtk_window_new();
   gtk_window_set_title(GTK_WINDOW(dlg), "Create SD Card Image");
@@ -2756,14 +3009,16 @@ static void on_sd_create_clicked(GtkButton *btn, gpointer ud) {
   gtk_window_set_default_size(GTK_WINDOW(dlg), 440, -1);
 
   SdCreateCtx *ctx = g_new0(SdCreateCtx, 1);
-  ctx->entry  = entry;
-  ctx->warn   = warn;
+  ctx->entry = entry;
+  ctx->warn = warn;
   ctx->dialog = dlg;
   g_object_set_data_full(G_OBJECT(dlg), "ctx", ctx, g_free);
 
   GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-  gtk_widget_set_margin_start(vbox, 16); gtk_widget_set_margin_end(vbox, 16);
-  gtk_widget_set_margin_top(vbox, 16);   gtk_widget_set_margin_bottom(vbox, 16);
+  gtk_widget_set_margin_start(vbox, 16);
+  gtk_widget_set_margin_end(vbox, 16);
+  gtk_widget_set_margin_top(vbox, 16);
+  gtk_widget_set_margin_bottom(vbox, 16);
   gtk_window_set_child(GTK_WINDOW(dlg), vbox);
 
   gtk_box_append(GTK_BOX(vbox), gtk_label_new("Image file path:"));
@@ -2776,24 +3031,26 @@ static void on_sd_create_clicked(GtkButton *btn, gpointer ud) {
 
   gtk_box_append(GTK_BOX(vbox), gtk_label_new("Card size:"));
   const char *sznames[SD_SIZE_COUNT + 1];
-  for (int i = 0; i < SD_SIZE_COUNT; i++) sznames[i] = sd_size_label(i);
+  for (int i = 0; i < SD_SIZE_COUNT; i++)
+    sznames[i] = sd_size_label(i);
   sznames[SD_SIZE_COUNT] = NULL;
   GtkWidget *dd = gtk_drop_down_new_from_strings(sznames);
   gtk_drop_down_set_selected(GTK_DROP_DOWN(dd), SD_SIZE_32MB);
   ctx->dd_size = dd;
   gtk_box_append(GTK_BOX(vbox), dd);
 
-  GtkWidget *warn_lbl = gtk_label_new("⚠ Large images (≥1GB) may take time to create.");
+  GtkWidget *warn_lbl =
+      gtk_label_new("⚠ Large images (≥1GB) may take time to create.");
   gtk_widget_add_css_class(warn_lbl, "dim-label");
   gtk_box_append(GTK_BOX(vbox), warn_lbl);
 
   GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
   gtk_widget_set_halign(hbox, GTK_ALIGN_END);
   GtkWidget *btn_cancel = gtk_button_new_with_label("Cancel");
-  GtkWidget *btn_ok     = gtk_button_new_with_label("Create");
+  GtkWidget *btn_ok = gtk_button_new_with_label("Create");
   gtk_widget_add_css_class(btn_ok, "suggested-action");
-  g_signal_connect_swapped(btn_cancel, "clicked",
-                           G_CALLBACK(gtk_window_close), dlg);
+  g_signal_connect_swapped(btn_cancel, "clicked", G_CALLBACK(gtk_window_close),
+                           dlg);
   g_signal_connect(btn_ok, "clicked", G_CALLBACK(sd_create_ok_cb), ctx);
   gtk_box_append(GTK_BOX(hbox), btn_cancel);
   gtk_box_append(GTK_BOX(hbox), btn_ok);
@@ -2804,25 +3061,33 @@ static void on_sd_create_clicked(GtkButton *btn, gpointer ud) {
 static void sd_dup_save_cb(GObject *src, GAsyncResult *res, gpointer ud) {
   GtkWidget *btn = GTK_WIDGET(ud);
   GtkWidget *entry = (GtkWidget *)g_object_get_data(G_OBJECT(btn), "entry");
-  GtkWidget *warn  = (GtkWidget *)g_object_get_data(G_OBJECT(btn), "warn");
+  GtkWidget *warn = (GtkWidget *)g_object_get_data(G_OBJECT(btn), "warn");
   GError *err = NULL;
   GFile *file = gtk_file_dialog_save_finish(GTK_FILE_DIALOG(src), res, &err);
-  if (!file) { if (err) g_error_free(err); return; }
+  if (!file) {
+    if (err)
+      g_error_free(err);
+    return;
+  }
   char *dest = g_file_get_path(file);
   g_object_unref(file);
-  if (!dest) return;
-  const char *src_path = gtk_entry_buffer_get_text(
-      gtk_entry_get_buffer(GTK_ENTRY(entry)));
+  if (!dest)
+    return;
+  const char *src_path =
+      gtk_entry_buffer_get_text(gtk_entry_get_buffer(GTK_ENTRY(entry)));
   if (src_path && src_path[0]) {
     FILE *sf = fopen(src_path, "rb");
     FILE *df = fopen(dest, "wb");
     if (sf && df) {
-      uint8_t buf[65536]; size_t n;
+      uint8_t buf[65536];
+      size_t n;
       while ((n = fread(buf, 1, sizeof(buf), sf)) > 0)
         fwrite(buf, 1, n, df);
     }
-    if (sf) fclose(sf);
-    if (df) fclose(df);
+    if (sf)
+      fclose(sf);
+    if (df)
+      fclose(df);
     /* Update entry to point to duplicate */
     gtk_entry_buffer_set_text(gtk_entry_get_buffer(GTK_ENTRY(entry)), dest, -1);
     sd_img_update_warn(entry, warn);
@@ -2841,14 +3106,15 @@ static void on_sd_dup_clicked(GtkButton *btn, gpointer ud) {
 }
 
 static void sd_delete_confirmed_cb(GtkAlertDialog *ad, GAsyncResult *res,
-                                    gpointer ud) {
+                                   gpointer ud) {
   GtkWidget *btn = GTK_WIDGET(ud);
   GtkWidget *entry = (GtkWidget *)g_object_get_data(G_OBJECT(btn), "entry");
-  GtkWidget *warn  = (GtkWidget *)g_object_get_data(G_OBJECT(btn), "warn");
+  GtkWidget *warn = (GtkWidget *)g_object_get_data(G_OBJECT(btn), "warn");
   int idx = gtk_alert_dialog_choose_finish(ad, res, NULL);
-  if (idx != 0) return; /* 0 = Delete, 1 = Cancel */
-  const char *path = gtk_entry_buffer_get_text(
-      gtk_entry_get_buffer(GTK_ENTRY(entry)));
+  if (idx != 0)
+    return; /* 0 = Delete, 1 = Cancel */
+  const char *path =
+      gtk_entry_buffer_get_text(gtk_entry_get_buffer(GTK_ENTRY(entry)));
   if (path && path[0]) {
     remove(path);
     gtk_entry_buffer_set_text(gtk_entry_get_buffer(GTK_ENTRY(entry)), "", -1);
@@ -2858,14 +3124,17 @@ static void sd_delete_confirmed_cb(GtkAlertDialog *ad, GAsyncResult *res,
 
 static void on_sd_delete_clicked(GtkButton *btn, gpointer ud) {
   (void)ud;
-  GtkWidget *win   = (GtkWidget *)g_object_get_data(G_OBJECT(btn), "win");
+  GtkWidget *win = (GtkWidget *)g_object_get_data(G_OBJECT(btn), "win");
   GtkWidget *entry = (GtkWidget *)g_object_get_data(G_OBJECT(btn), "entry");
-  const char *path = gtk_entry_buffer_get_text(
-      gtk_entry_get_buffer(GTK_ENTRY(entry)));
-  if (!path || !path[0]) return;
+  const char *path =
+      gtk_entry_buffer_get_text(gtk_entry_get_buffer(GTK_ENTRY(entry)));
+  if (!path || !path[0])
+    return;
   char msg[600];
-  snprintf(msg, sizeof(msg),
-           "Permanently delete this image file?\n\n%s\n\nThis cannot be undone.", path);
+  snprintf(
+      msg, sizeof(msg),
+      "Permanently delete this image file?\n\n%s\n\nThis cannot be undone.",
+      path);
   const char *btns[] = {"Delete", "Cancel", NULL};
   GtkAlertDialog *ad = gtk_alert_dialog_new("%s", msg);
   gtk_alert_dialog_set_buttons(ad, btns);
@@ -2894,7 +3163,8 @@ static void show_profile_editor(sim_win_t *w, simprofile_t *prof, bool is_new) {
   }
   GtkWidget *prof_hdr = gtk_header_bar_new();
   gtk_header_bar_set_show_title_buttons(GTK_HEADER_BAR(prof_hdr), TRUE);
-  gtk_header_bar_set_title_widget(GTK_HEADER_BAR(prof_hdr),
+  gtk_header_bar_set_title_widget(
+      GTK_HEADER_BAR(prof_hdr),
       gtk_label_new(is_new ? "New Profile" : "Edit Profile"));
   gtk_window_set_titlebar(GTK_WINDOW(dlg), prof_hdr);
 
@@ -2966,9 +3236,10 @@ static void show_profile_editor(sim_win_t *w, simprofile_t *prof, bool is_new) {
   /* $DB=STP option — only for 6502/6502U */
   GtkWidget *chk_stp_db = gtk_check_button_new_with_label(
       "$DB = STP  (treat opcode $DB as halt on 6502)");
-  gtk_check_button_set_active(GTK_CHECK_BUTTON(chk_stp_db), false); /* runtime-only — see toolbar $DB=STP */
-  gtk_widget_set_visible(chk_stp_db,
-      p->cpu_type == PROFILE_CPU_6502 || p->cpu_type == PROFILE_CPU_6502U);
+  gtk_check_button_set_active(GTK_CHECK_BUTTON(chk_stp_db),
+                              false); /* runtime-only — see toolbar $DB=STP */
+  gtk_widget_set_visible(chk_stp_db, p->cpu_type == PROFILE_CPU_6502 ||
+                                         p->cpu_type == PROFILE_CPU_6502U);
   gtk_grid_attach(GTK_GRID(grid), chk_stp_db, 1, row++, 3, 1);
 
   /* ROM ranges */
@@ -3036,7 +3307,8 @@ static void show_profile_editor(sim_win_t *w, simprofile_t *prof, bool is_new) {
       gtk_entry_buffer_set_text(gtk_entry_get_buffer(GTK_ENTRY(rom_rw[i])),
                                 _rwtxt, -1);
       gtk_widget_set_tooltip_text(rom_rw[i],
-          "Which bit in the ROM control register controls R/W for this range (0-7)");
+                                  "Which bit in the ROM control register "
+                                  "controls R/W for this range (0-7)");
     }
 
     /* Lock bit — plain entry: -1=none, 0-7=bit number */
@@ -3050,7 +3322,8 @@ static void show_profile_editor(sim_win_t *w, simprofile_t *prof, bool is_new) {
       gtk_entry_buffer_set_text(gtk_entry_get_buffer(GTK_ENTRY(rom_lock[i])),
                                 _lktxt, -1);
       gtk_widget_set_tooltip_text(rom_lock[i],
-          "Which bit in the ROM control register locks this range until reset (0-7)");
+                                  "Which bit in the ROM control register locks "
+                                  "this range until reset (0-7)");
     }
 
     GtkWidget *hbox2 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
@@ -3135,7 +3408,20 @@ static void show_profile_editor(sim_win_t *w, simprofile_t *prof, bool is_new) {
   HEAD("LCD Display (HD44780)");
   {
     /* Helper macro for compact pin entry: format "1A0"=VIA1 port A bit 0 */
-#define PIN_ENTRY(field)                                                            {                                                                                 char _pb[8];                                                                    lcd_pin_format(&p->lcd.field, _pb, sizeof(_pb));                               e_lcd_##field = gtk_entry_new();                                                gtk_entry_set_max_length(GTK_ENTRY(e_lcd_##field), 3);                         gtk_widget_set_size_request(e_lcd_##field, 50, -1);                            gtk_widget_set_hexpand(e_lcd_##field, FALSE);                                  gtk_entry_buffer_set_text(                                                          gtk_entry_get_buffer(GTK_ENTRY(e_lcd_##field)), _pb, -1);                  gtk_widget_set_tooltip_text(e_lcd_##field,                                         "Pin: VIA(1/2) Port(A/B) Bit(0-7)  e.g. 1A0 = VIA1 port A bit 0");     }
+#define PIN_ENTRY(field)                                                       \
+  {                                                                            \
+    char _pb[8];                                                               \
+    lcd_pin_format(&p->lcd.field, _pb, sizeof(_pb));                           \
+    e_lcd_##field = gtk_entry_new();                                           \
+    gtk_entry_set_max_length(GTK_ENTRY(e_lcd_##field), 3);                     \
+    gtk_widget_set_size_request(e_lcd_##field, 50, -1);                        \
+    gtk_widget_set_hexpand(e_lcd_##field, FALSE);                              \
+    gtk_entry_buffer_set_text(gtk_entry_get_buffer(GTK_ENTRY(e_lcd_##field)),  \
+                              _pb, -1);                                        \
+    gtk_widget_set_tooltip_text(                                               \
+        e_lcd_##field,                                                         \
+        "Pin: VIA(1/2) Port(A/B) Bit(0-7)  e.g. 1A0 = VIA1 port A bit 0");     \
+  }
 
     /* Enable + bus width row */
     chk_lcd = gtk_check_button_new_with_label("Enable LCD");
@@ -3143,7 +3429,7 @@ static void show_profile_editor(sim_win_t *w, simprofile_t *prof, bool is_new) {
     dd_lcd_bus = gtk_drop_down_new_from_strings(
         (const char *[]){"8-bit", "4-bit", NULL});
     gtk_drop_down_set_selected(GTK_DROP_DOWN(dd_lcd_bus),
-        p->lcd.bus_width == 4 ? 1 : 0);
+                               p->lcd.bus_width == 4 ? 1 : 0);
     gtk_widget_set_tooltip_text(dd_lcd_bus, "Interface bus width");
 
     GtkWidget *lcd_top = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
@@ -3158,7 +3444,8 @@ static void show_profile_editor(sim_win_t *w, simprofile_t *prof, bool is_new) {
     spn_lcd_rows = gtk_spin_button_new_with_range(1, 4, 1);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(spn_lcd_rows), p->lcd.rows);
     chk_lcd_strict = gtk_check_button_new_with_label("Strict timing");
-    gtk_check_button_set_active(GTK_CHECK_BUTTON(chk_lcd_strict), p->lcd.strict);
+    gtk_check_button_set_active(GTK_CHECK_BUTTON(chk_lcd_strict),
+                                p->lcd.strict);
     GtkWidget *lcd_geom = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
     gtk_box_append(GTK_BOX(lcd_geom), gtk_label_new("Cols:"));
     gtk_box_append(GTK_BOX(lcd_geom), spn_lcd_cols);
@@ -3168,7 +3455,9 @@ static void show_profile_editor(sim_win_t *w, simprofile_t *prof, bool is_new) {
     gtk_grid_attach(GTK_GRID(grid), lcd_geom, 0, row++, 4, 1);
 
     /* Control pins row: RS, RW, E — each with a pick button */
-    PIN_ENTRY(rs); PIN_ENTRY(rw); PIN_ENTRY(e);
+    PIN_ENTRY(rs);
+    PIN_ENTRY(rw);
+    PIN_ENTRY(e);
     GtkWidget *lcd_ctrl = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     gtk_box_append(GTK_BOX(lcd_ctrl), gtk_label_new("RS:"));
     gtk_box_append(GTK_BOX(lcd_ctrl), make_pin_row(e_lcd_rs, dlg, "RS"));
@@ -3195,10 +3484,10 @@ static void show_profile_editor(sim_win_t *w, simprofile_t *prof, bool is_new) {
         gtk_entry_set_max_length(GTK_ENTRY(e_lcd_d[_i]), 3);
         gtk_widget_set_size_request(e_lcd_d[_i], 50, -1);
         gtk_widget_set_hexpand(e_lcd_d[_i], FALSE);
-        gtk_entry_buffer_set_text(
-            gtk_entry_get_buffer(GTK_ENTRY(e_lcd_d[_i])), _pb, -1);
-        gtk_widget_set_tooltip_text(e_lcd_d[_i],
-            "Pin: VIA(1/2) Port(A/B) Bit(0-7)  e.g. 1A0");
+        gtk_entry_buffer_set_text(gtk_entry_get_buffer(GTK_ENTRY(e_lcd_d[_i])),
+                                  _pb, -1);
+        gtk_widget_set_tooltip_text(
+            e_lcd_d[_i], "Pin: VIA(1/2) Port(A/B) Bit(0-7)  e.g. 1A0");
       }
     }
     lcd_d03 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
@@ -3242,17 +3531,22 @@ static void show_profile_editor(sim_win_t *w, simprofile_t *prof, bool is_new) {
     GtkWidget *sd_en_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
     gtk_box_append(GTK_BOX(sd_en_row), chk_sd);
     gtk_box_append(GTK_BOX(sd_en_row), chk_sd_strict);
+    GtkWidget *chk_sd_read_only = gtk_check_button_new_with_label("Read-only image");
+    gtk_check_button_set_active(GTK_CHECK_BUTTON(chk_sd_read_only), p->sd.read_only);
+    gtk_box_append(GTK_BOX(sd_en_row), chk_sd_read_only);
+    g_object_set_data(G_OBJECT(dlg), "sd_read_only", chk_sd_read_only);
     gtk_grid_attach(GTK_GRID(grid), sd_en_row, 0, row++, 4, 1);
 
     /* Pin rows with picker buttons — reuse make_pin_row like LCD */
     const char *sd_pnames[] = {"SCK:", "MOSI:", "MISO:", "CS:"};
-    spi_pin_t  *sd_pins[]   = {&p->sd.sck, &p->sd.mosi, &p->sd.miso, &p->sd.cs};
-    GtkWidget  *sd_pentries[4];
+    spi_pin_t *sd_pins[] = {&p->sd.sck, &p->sd.mosi, &p->sd.miso, &p->sd.cs};
+    GtkWidget *sd_pentries[4];
     for (int _i = 0; _i < 4; _i++) {
       GtkWidget *lbl = gtk_label_new(sd_pnames[_i]);
       gtk_widget_set_halign(lbl, GTK_ALIGN_END);
       gtk_grid_attach(GTK_GRID(grid), lbl, 0, row, 1, 1);
-      char pb[8]; spi_pin_format(sd_pins[_i], pb, sizeof(pb));
+      char pb[8];
+      spi_pin_format(sd_pins[_i], pb, sizeof(pb));
       GtkWidget *e = gtk_entry_new();
       gtk_entry_set_max_length(GTK_ENTRY(e), 3);
       gtk_widget_set_size_request(e, 56, -1);
@@ -3290,10 +3584,10 @@ static void show_profile_editor(sim_win_t *w, simprofile_t *prof, bool is_new) {
     /* Browse button opens file chooser */
     GtkWidget *btn_browse = gtk_button_new_with_label("Browse…");
     g_object_set_data(G_OBJECT(btn_browse), "entry", e_img);
-    g_object_set_data(G_OBJECT(btn_browse), "warn",  img_warn);
-    g_object_set_data(G_OBJECT(btn_browse), "win",   dlg);
-    g_signal_connect(btn_browse, "clicked",
-        G_CALLBACK(on_sd_image_browse), NULL);
+    g_object_set_data(G_OBJECT(btn_browse), "warn", img_warn);
+    g_object_set_data(G_OBJECT(btn_browse), "win", dlg);
+    g_signal_connect(btn_browse, "clicked", G_CALLBACK(on_sd_image_browse),
+                     NULL);
     gtk_box_append(GTK_BOX(img_box), btn_browse);
     gtk_grid_attach(GTK_GRID(grid), img_box, 1, row++, 3, 1);
     gtk_grid_attach(GTK_GRID(grid), img_warn, 1, row++, 3, 1);
@@ -3301,42 +3595,42 @@ static void show_profile_editor(sim_win_t *w, simprofile_t *prof, bool is_new) {
     /* File management buttons: Create, Duplicate, Delete */
     GtkWidget *sd_file_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     GtkWidget *btn_create = gtk_button_new_with_label("Create new…");
-    GtkWidget *btn_dup    = gtk_button_new_with_label("Duplicate…");
-    GtkWidget *btn_del    = gtk_button_new_with_label("Delete…");
+    GtkWidget *btn_dup = gtk_button_new_with_label("Duplicate…");
+    GtkWidget *btn_del = gtk_button_new_with_label("Delete…");
     gtk_widget_add_css_class(btn_del, "destructive-action");
     g_object_set_data(G_OBJECT(btn_create), "entry", e_img);
-    g_object_set_data(G_OBJECT(btn_create), "warn",  img_warn);
-    g_object_set_data(G_OBJECT(btn_create), "win",   dlg);
-    g_object_set_data(G_OBJECT(btn_dup),    "entry", e_img);
-    g_object_set_data(G_OBJECT(btn_dup),    "warn",  img_warn);
-    g_object_set_data(G_OBJECT(btn_dup),    "win",   dlg);
-    g_object_set_data(G_OBJECT(btn_del),    "entry", e_img);
-    g_object_set_data(G_OBJECT(btn_del),    "warn",  img_warn);
-    g_object_set_data(G_OBJECT(btn_del),    "win",   dlg);
-    g_signal_connect(btn_create, "clicked", G_CALLBACK(on_sd_create_clicked),  NULL);
-    g_signal_connect(btn_dup,    "clicked", G_CALLBACK(on_sd_dup_clicked),     NULL);
-    g_signal_connect(btn_del,    "clicked", G_CALLBACK(on_sd_delete_clicked),  NULL);
+    g_object_set_data(G_OBJECT(btn_create), "warn", img_warn);
+    g_object_set_data(G_OBJECT(btn_create), "win", dlg);
+    g_object_set_data(G_OBJECT(btn_dup), "entry", e_img);
+    g_object_set_data(G_OBJECT(btn_dup), "warn", img_warn);
+    g_object_set_data(G_OBJECT(btn_dup), "win", dlg);
+    g_object_set_data(G_OBJECT(btn_del), "entry", e_img);
+    g_object_set_data(G_OBJECT(btn_del), "warn", img_warn);
+    g_object_set_data(G_OBJECT(btn_del), "win", dlg);
+    g_signal_connect(btn_create, "clicked", G_CALLBACK(on_sd_create_clicked),
+                     NULL);
+    g_signal_connect(btn_dup, "clicked", G_CALLBACK(on_sd_dup_clicked), NULL);
+    g_signal_connect(btn_del, "clicked", G_CALLBACK(on_sd_delete_clicked),
+                     NULL);
     gtk_box_append(GTK_BOX(sd_file_box), btn_create);
     gtk_box_append(GTK_BOX(sd_file_box), btn_dup);
     gtk_box_append(GTK_BOX(sd_file_box), btn_del);
     gtk_grid_attach(GTK_GRID(grid), sd_file_box, 1, row++, 3, 1);
 
     /* Store in ctx after ctx is allocated (done below) */
-    g_object_set_data(G_OBJECT(dlg), "sd_chk",    chk_sd);
+    g_object_set_data(G_OBJECT(dlg), "sd_chk", chk_sd);
     g_object_set_data(G_OBJECT(dlg), "sd_strict", chk_sd_strict);
-    g_object_set_data(G_OBJECT(dlg), "sd_sck",    sd_pentries[0]);
-    g_object_set_data(G_OBJECT(dlg), "sd_mosi",   sd_pentries[1]);
-    g_object_set_data(G_OBJECT(dlg), "sd_miso",   sd_pentries[2]);
-    g_object_set_data(G_OBJECT(dlg), "sd_cs",     sd_pentries[3]);
-    g_object_set_data(G_OBJECT(dlg), "sd_img",    e_img);
+    g_object_set_data(G_OBJECT(dlg), "sd_sck", sd_pentries[0]);
+    g_object_set_data(G_OBJECT(dlg), "sd_mosi", sd_pentries[1]);
+    g_object_set_data(G_OBJECT(dlg), "sd_miso", sd_pentries[2]);
+    g_object_set_data(G_OBJECT(dlg), "sd_cs", sd_pentries[3]);
+    g_object_set_data(G_OBJECT(dlg), "sd_img", e_img);
   }
-
 
 #undef HEAD
 #undef ROW2
 #undef LABEL
 #undef IO_ROW
-
 
   /* Button row */
   GtkWidget *btn_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
@@ -3396,37 +3690,39 @@ static void show_profile_editor(sim_win_t *w, simprofile_t *prof, bool is_new) {
   ctx->e_bank = e_bank;
   ctx->e_bwin = e_bwin;
   ctx->e_bwsz = e_bwsz;
-  ctx->spn_banks      = spn_banks;
-  ctx->chk_lcd        = chk_lcd;
-  ctx->dd_lcd_bus     = dd_lcd_bus;
+  ctx->spn_banks = spn_banks;
+  ctx->chk_lcd = chk_lcd;
+  ctx->dd_lcd_bus = dd_lcd_bus;
   g_signal_connect(dd_lcd_bus, "notify::selected",
-      G_CALLBACK(on_lcd_bus_changed), ctx);
-  ctx->spn_lcd_cols   = spn_lcd_cols;
-  ctx->spn_lcd_rows   = spn_lcd_rows;
+                   G_CALLBACK(on_lcd_bus_changed), ctx);
+  ctx->spn_lcd_cols = spn_lcd_cols;
+  ctx->spn_lcd_rows = spn_lcd_rows;
   ctx->chk_lcd_strict = chk_lcd_strict;
-  ctx->e_lcd_rs       = e_lcd_rs;
-  ctx->e_lcd_rw       = e_lcd_rw;
-  ctx->e_lcd_e        = e_lcd_e;
+  ctx->e_lcd_rs = e_lcd_rs;
+  ctx->e_lcd_rw = e_lcd_rw;
+  ctx->e_lcd_e = e_lcd_e;
   for (int _i = 0; _i < 8; _i++)
     ctx->e_lcd_d[_i] = e_lcd_d[_i];
-  ctx->lcd_d03_row    = lcd_d03;
+  ctx->lcd_d03_row = lcd_d03;
   /* SD card */
-  ctx->chk_sd         = NULL;  /* set below in SD section */
-  ctx->chk_sd_strict  = NULL;
-  ctx->e_sd_sck       = NULL;
-  ctx->e_sd_mosi      = NULL;
-  ctx->e_sd_miso      = NULL;
-  ctx->e_sd_cs        = NULL;
-  ctx->e_sd_image     = NULL;
-  ctx->chk_stp_db     = chk_stp_db;
+  ctx->chk_sd = NULL; /* set below in SD section */
+  ctx->chk_sd_read_only = (GtkWidget *)g_object_get_data(G_OBJECT(dlg), "sd_read_only");
+  ctx->chk_sd_strict = NULL;
+  ctx->e_sd_sck = NULL;
+  ctx->e_sd_mosi = NULL;
+  ctx->e_sd_miso = NULL;
+  ctx->e_sd_cs = NULL;
+  ctx->e_sd_image = NULL;
+  ctx->chk_stp_db = chk_stp_db;
   /* Pull SD widgets from dialog data store */
-  ctx->chk_sd        = (GtkWidget *)g_object_get_data(G_OBJECT(dlg), "sd_chk");
-  ctx->chk_sd_strict = (GtkWidget *)g_object_get_data(G_OBJECT(dlg), "sd_strict");
-  ctx->e_sd_sck      = (GtkWidget *)g_object_get_data(G_OBJECT(dlg), "sd_sck");
-  ctx->e_sd_mosi     = (GtkWidget *)g_object_get_data(G_OBJECT(dlg), "sd_mosi");
-  ctx->e_sd_miso     = (GtkWidget *)g_object_get_data(G_OBJECT(dlg), "sd_miso");
-  ctx->e_sd_cs       = (GtkWidget *)g_object_get_data(G_OBJECT(dlg), "sd_cs");
-  ctx->e_sd_image    = (GtkWidget *)g_object_get_data(G_OBJECT(dlg), "sd_img");
+  ctx->chk_sd = (GtkWidget *)g_object_get_data(G_OBJECT(dlg), "sd_chk");
+  ctx->chk_sd_strict =
+      (GtkWidget *)g_object_get_data(G_OBJECT(dlg), "sd_strict");
+  ctx->e_sd_sck = (GtkWidget *)g_object_get_data(G_OBJECT(dlg), "sd_sck");
+  ctx->e_sd_mosi = (GtkWidget *)g_object_get_data(G_OBJECT(dlg), "sd_mosi");
+  ctx->e_sd_miso = (GtkWidget *)g_object_get_data(G_OBJECT(dlg), "sd_miso");
+  ctx->e_sd_cs = (GtkWidget *)g_object_get_data(G_OBJECT(dlg), "sd_cs");
+  ctx->e_sd_image = (GtkWidget *)g_object_get_data(G_OBJECT(dlg), "sd_img");
   g_object_set_data_full(G_OBJECT(dlg), "edctx", ctx, g_free);
 
   /* Helper to read all fields into profile */
@@ -3534,10 +3830,13 @@ sim_win_t *sim_win_create(GtkWindow *parent, const simcfg_t *cfg,
       prof.cpu_type = PROFILE_CPU_6502;
     /* Initialise SD core before apply so timing is set correctly */
     spi_cfg_defaults(&w->sd_ui.cfg);
-    sd_init(&w->sd_ui.sd,
-            (uint64_t)(cfg->speed < 14 ? (long[]){2000000,1000000,512000,
-                128000,32000,8000,2000,512,128,32,8,2,1,0}[cfg->speed] : 1000000),
-            false);
+    sd_init(
+        &w->sd_ui.sd,
+        (uint64_t)(cfg->speed < 14
+                       ? (long[]){2000000, 1000000, 512000, 128000, 32000, 8000,
+                                  2000, 512, 128, 32, 8, 2, 1, 0}[cfg->speed]
+                       : 1000000),
+        false);
     sim_apply_profile(w, &prof, cfg);
   }
 
@@ -3642,21 +3941,23 @@ sim_win_t *sim_win_create(GtkWindow *parent, const simcfg_t *cfg,
   gtk_widget_set_sensitive(w->btn_stop, FALSE);
 
   /* Speed dropdown */
-  const char *spd_names[] = {"2MHz", "1MHz",   "512KHz", "128KHz", "32KHz", "8KHz",
-                             "2KHz", "512Hz",  "128Hz",  "32Hz",  "8Hz",
-                             "2Hz",  "1Hz",    "MAX",    NULL};
+  const char *spd_names[] = {"2MHz", "1MHz", "512KHz", "128KHz", "32KHz",
+                             "8KHz", "2KHz", "512Hz",  "128Hz",  "32Hz",
+                             "8Hz",  "2Hz",  "1Hz",    "MAX",    NULL};
   GtkWidget *dd_speed = gtk_drop_down_new_from_strings(spd_names);
   guint spd_sel = (cfg->speed < 14) ? (guint)cfg->speed : 0;
   gtk_drop_down_set_selected(GTK_DROP_DOWN(dd_speed), spd_sel);
   g_signal_connect(dd_speed, "notify::selected", G_CALLBACK(on_speed_changed),
                    w);
   char info[64];
-  /* Build initial speed label text — warn immediately if starting at fast speed */
+  /* Build initial speed label text — warn immediately if starting at fast speed
+   */
   {
     bool fast_init = (spd_sel < (guint)SIM_SPEED_2KHZ);
-    bool max_init  = (spd_sel == (guint)SIM_SPEED_MAX);
+    bool max_init = (spd_sel == (guint)SIM_SPEED_MAX);
     if (fast_init || max_init)
-      snprintf(info, sizeof(info), "%s  \u26a0 display reduced", spd_names[spd_sel]);
+      snprintf(info, sizeof(info), "%s  \u26a0 display reduced",
+               spd_names[spd_sel]);
     else
       snprintf(info, sizeof(info), "%s", spd_names[spd_sel]);
   }
@@ -3666,7 +3967,8 @@ sim_win_t *sim_win_create(GtkWindow *parent, const simcfg_t *cfg,
   w->lbl_speed_info = lbl_info;
   /* Apply correct CSS class based on initial speed */
   {
-    bool fast_init = (spd_sel < (guint)SIM_SPEED_2KHZ || spd_sel == (guint)SIM_SPEED_MAX);
+    bool fast_init =
+        (spd_sel < (guint)SIM_SPEED_2KHZ || spd_sel == (guint)SIM_SPEED_MAX);
     if (fast_init)
       gtk_widget_add_css_class(lbl_info, "speed-warn");
     else
@@ -3741,8 +4043,8 @@ sim_win_t *sim_win_create(GtkWindow *parent, const simcfg_t *cfg,
     GtkWidget *chk_stp = gtk_check_button_new_with_label("$DB=STP");
     gtk_check_button_set_active(GTK_CHECK_BUTTON(chk_stp), w->cfg.stp_on_db);
     gtk_widget_set_tooltip_text(chk_stp,
-        "Treat opcode $DB as STP (halt) on 6502\n"
-        "Allows use of STP as halt on all CPU types");
+                                "Treat opcode $DB as STP (halt) on 6502\n"
+                                "Allows use of STP as halt on all CPU types");
     g_signal_connect(chk_stp, "toggled", G_CALLBACK(on_stp_db_toggled), w);
     gtk_box_append(GTK_BOX(toolbar2), chk_stp);
     gtk_box_append(GTK_BOX(toolbar2),
@@ -3866,7 +4168,7 @@ sim_win_t *sim_win_create(GtkWindow *parent, const simcfg_t *cfg,
   }
   GtkWidget *mid_sep = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
   gtk_widget_set_visible(mid_sep,
-      w->lcd_ui.cfg.enabled && w->sd_ui.cfg.enabled);
+                         w->lcd_ui.cfg.enabled && w->sd_ui.cfg.enabled);
   gtk_box_append(GTK_BOX(col_mid), mid_sep);
   /* SD card panel */
   {
@@ -3902,18 +4204,19 @@ sim_win_t *sim_win_create(GtkWindow *parent, const simcfg_t *cfg,
   gtk_widget_set_hexpand(bottom, TRUE);
   gtk_widget_set_vexpand(bottom, FALSE);
 
-  if (cfg->via1_enable) {
+  /* Build all panels once. A later profile may enable a device that is
+   * disabled at startup; hide/show instead of omitting its widgets. */
+  w->peripheral_row = bottom;
+  for (int vi = 0; vi < 2; vi++) {
     char vtitle[32];
-    snprintf(vtitle, sizeof(vtitle), "VIA 1  ($%04X)", cfg->via1_base);
-    gtk_box_append(GTK_BOX(bottom), build_via_panel(w, 0, vtitle));
+    unsigned addr = vi == 0 ? w->profile.via1.addr : w->profile.via2.addr;
+    snprintf(vtitle, sizeof(vtitle), "VIA %d  ($%04X)", vi + 1, addr);
+    w->via_panels[vi] = build_via_panel(w, vi, vtitle);
+    gtk_box_append(GTK_BOX(bottom), w->via_panels[vi]);
   }
-  if (cfg->via2_enable) {
-    char vtitle[32];
-    snprintf(vtitle, sizeof(vtitle), "VIA 2  ($%04X)", cfg->via2_base);
-    gtk_box_append(GTK_BOX(bottom), build_via_panel(w, 1, vtitle));
-  }
-  if (cfg->acia_enable)
-    gtk_box_append(GTK_BOX(bottom), build_acia_panel(w));
+  w->acia_panel_widget = build_acia_panel(w);
+  gtk_box_append(GTK_BOX(bottom), w->acia_panel_widget);
+  refresh_peripheral_panels(w);
 
   /* ---- Left vbox: top_pane + separator + bottom row ---- */
   GtkWidget *left_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);

@@ -101,6 +101,12 @@ void lcd_ui_via_changed(struct sim_win_t *w, int via_idx) {
     /* Detect falling edge of E — write data is latched on E↓ */
     if (ui->e_last && !e_now) {
         uint8_t data = rw ? 0 : read_data_pins(w);
+        /* An eight-wire connection can run the controller in 4-bit mode.
+         * lcd_strobe expects a nibble in bits 0..3 in that mode. Select
+         * physical D4..D7, rather than mistaking D0..D3 for the nibble.
+         * Decide before the strobe: this transfer may change bus_8bit. */
+        if (!rw && ui->cfg.bus_width == 8 && !ui->lcd.bus_8bit)
+            data >>= 4;
 
         bool busy = false;
         uint8_t result = lcd_strobe(&ui->lcd, rs, rw, data, &busy);
@@ -121,7 +127,12 @@ static void draw_lcd(GtkDrawingArea *area, cairo_t *cr,
     (void)width; (void)height;
     struct sim_win_t *w = (struct sim_win_t *)ud;
     lcd_ui_t *ui = &w->lcd_ui;
-    lcd_t    *lcd = &ui->lcd;
+    /* Render a coherent snapshot while the CPU updates the live LCD. */
+    pthread_mutex_lock(&w->sim.state_lock);
+    lcd_t snapshot = ui->lcd;
+    bool enabled = ui->cfg.enabled;
+    pthread_mutex_unlock(&w->sim.state_lock);
+    lcd_t *lcd = &snapshot;
     int cols = lcd->cols;
     int rows = lcd->rows;
     bool popout = (GTK_WIDGET(area) == ui->popout_drawing);
@@ -137,11 +148,15 @@ static void draw_lcd(GtkDrawingArea *area, cairo_t *cr,
     int total_h = LCD_MARGIN * 2 + rows * cell_h;
 
     /* Background */
-    cairo_set_source_rgb(cr, LCD_BG_R, LCD_BG_G, LCD_BG_B);
+    /* Visual status cue, not a model of a physical backlight circuit. */
+    bool lit = enabled && lcd->initialised;
+    double light = lit ? 1.0 : 0.28;
+    cairo_set_source_rgb(cr, LCD_BG_R * light, LCD_BG_G * light,
+                         LCD_BG_B * light);
     cairo_rectangle(cr, 0, 0, total_w, total_h);
     cairo_fill(cr);
 
-    if (!ui->cfg.enabled) {
+    if (!enabled) {
         /* Show "LCD disabled" message */
         cairo_set_source_rgb(cr, LCD_OFF_R, LCD_OFF_G, LCD_OFF_B);
         cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL,
@@ -177,9 +192,9 @@ static void draw_lcd(GtkDrawingArea *area, cairo_t *cr,
                     if (cursor && !blink && py == 7)
                         on = true;
 
-                    double r = on ? LCD_ON_R : LCD_OFF_R;
-                    double g = on ? LCD_ON_G : LCD_OFF_G;
-                    double b = on ? LCD_ON_B : LCD_OFF_B;
+                    double r = (on ? LCD_ON_R : LCD_OFF_R) * light;
+                    double g = (on ? LCD_ON_G : LCD_OFF_G) * light;
+                    double b = (on ? LCD_ON_B : LCD_OFF_B) * light;
 
                     cairo_set_source_rgb(cr, r, g, b);
                     cairo_rectangle(cr,
@@ -279,7 +294,7 @@ GtkWidget *lcd_ui_create(struct sim_win_t *w) {
 
     /* Mode label */
     char mode_str[64];
-    snprintf(mode_str, sizeof(mode_str), "%d×%d  %d-bit  %s",
+    snprintf(mode_str, sizeof(mode_str), "%dx%d  %d-bit  %s",
              cfg->cols, cfg->rows, cfg->bus_width,
              cfg->strict ? "Strict" : "Permissive");
     GtkWidget *lbl = gtk_label_new(mode_str);
@@ -351,7 +366,7 @@ void lcd_ui_apply_cfg(struct sim_win_t *w, const lcd_cfg_t *cfg) {
     /* Update mode label */
     if (ui->lbl_mode) {
         char mode_str[64];
-        snprintf(mode_str, sizeof(mode_str), "%d×%d  %d-bit  %s",
+        snprintf(mode_str, sizeof(mode_str), "%dx%d  %d-bit  %s",
                  cfg->cols, cfg->rows, cfg->bus_width,
                  cfg->strict ? "Strict" : "Permissive");
         gtk_label_set_text(GTK_LABEL(ui->lbl_mode), mode_str);

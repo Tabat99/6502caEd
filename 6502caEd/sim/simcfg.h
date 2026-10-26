@@ -47,6 +47,8 @@ typedef struct {
     bool        acia_enable;
     uint32_t    acia_base;
     int         acia_tcp_port;
+    bool acia_w65c51n_tx_fault; /* Independent transmit-fault preference. */
+    acia_model_t acia_model; /* Generic 6551, W65C51S or W65C51N. */
     int         acia_transport;  /* 0 TCP, 1 native serial */
     char        acia_serial_device[512];
 

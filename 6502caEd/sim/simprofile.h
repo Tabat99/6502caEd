@@ -11,6 +11,7 @@
 #include <stdatomic.h>
 #include "lcd_cfg.h"
 #include "spi_cfg.h"
+#include "acia.h"
 
 /* CPU types that support banking (not 65816) */
 #define PROFILE_CPU_6502    0
@@ -95,6 +96,12 @@ typedef struct {
     profile_io_t    via1;
     profile_io_t    via2;
     profile_io_t    acia;
+    /* -1 / 0 / empty means inherit saved preferences. */
+    int acia_model;          /* -1 or acia_model_t */
+    int acia_tx_bug;         /* -1, 0 or 1 */
+    int acia_transport;      /* -1, TCP=0 or serial=1 */
+    int acia_tcp_port;       /* 0 means inherit */
+    char acia_serial_device[256];
     profile_io_t    simio_tx;
     profile_io_t    simio_rx;
 

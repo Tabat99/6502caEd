@@ -301,7 +301,8 @@ static void execute_command(lcd_t *lcd, bool rs, uint8_t data) {
             bool display_shift = (data & 0x08) != 0;
             bool right         = (data & 0x04) != 0;
             if (display_shift) {
-                lcd->shift_offset += right ? 1 : -1;
+                /* Offset selects the leftmost visible DDRAM column. */
+                lcd->shift_offset += right ? -1 : 1;
                 /* Wrap within 40-column DDRAM bank */
                 if (lcd->shift_offset >= 40)  lcd->shift_offset -= 40;
                 if (lcd->shift_offset < 0)    lcd->shift_offset += 40;

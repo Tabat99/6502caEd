@@ -17,6 +17,8 @@ void simcfg_defaults(simcfg_t *cfg) {
     cfg->acia_base      = 0x9020;
     cfg->acia_tcp_port  = 6551;
     cfg->acia_transport = 0;
+    cfg->acia_w65c51n_tx_fault = true;
+    cfg->acia_model = ACIA_MODEL_GENERIC_6551;
 #ifdef _WIN32
     snprintf(cfg->acia_serial_device,sizeof(cfg->acia_serial_device),"COM3");
 #else
@@ -54,6 +56,7 @@ bool simcfg_load(simcfg_t *cfg, const char *path) {
     FILE *f = fopen(path, "r");
     if (!f) return false;
 
+    bool explicit_model = false, legacy_present = false, legacy_fault = false;
     char line[512];
     while (fgets(line, sizeof(line), f)) {
         char *s = strip(line);
@@ -96,6 +99,18 @@ bool simcfg_load(simcfg_t *cfg, const char *path) {
         else if (!strcmp(key,"acia_enable"))    cfg->acia_enable   = parse_bool(val);
         else if (!strcmp(key,"acia_base"))      cfg->acia_base     = parse_hex(val);
         else if (!strcmp(key,"acia_tcp_port"))  cfg->acia_tcp_port = atoi(val);
+        else if (!strcmp(key,"acia_model")) {
+            if (!strcasecmp(val,"w65c51s")) { cfg->acia_model = ACIA_MODEL_W65C51S; explicit_model = true; }
+            else if (!strcasecmp(val,"w65c51n")) { cfg->acia_model = ACIA_MODEL_W65C51N; explicit_model = true; }
+            else if (!strcasecmp(val,"generic6551") || !strcasecmp(val,"generic")) {
+                cfg->acia_w65c51n_tx_fault = true;
+    cfg->acia_model = ACIA_MODEL_GENERIC_6551; explicit_model = true;
+            }
+        }
+        else if (!strcmp(key,"acia_w65c51n_tx_fault")) {
+            legacy_present = true; legacy_fault = parse_bool(val);
+            cfg->acia_w65c51n_tx_fault = legacy_fault;
+        }
         else if (!strcmp(key,"acia_transport")) cfg->acia_transport = !strcmp(val,"serial") ? 1 : 0;
         else if (!strcmp(key,"acia_serial_device")) snprintf(cfg->acia_serial_device,sizeof(cfg->acia_serial_device),"%s",val);
         else if (!strcmp(key,"simio_enable"))   cfg->simio_enable  = parse_bool(val);
@@ -124,6 +139,8 @@ bool simcfg_load(simcfg_t *cfg, const char *path) {
         }
     }
     fclose(f);
+    if (!explicit_model && legacy_present)
+        cfg->acia_model = legacy_fault ? ACIA_MODEL_W65C51N : ACIA_MODEL_GENERIC_6551;
     return true;
 }
 
@@ -160,6 +177,9 @@ bool simcfg_save(const simcfg_t *cfg, const char *path) {
     fprintf(f, "acia_enable   = %d\n", cfg->acia_enable ? 1 : 0);
     fprintf(f, "acia_base     = %04X\n", cfg->acia_base);
     fprintf(f, "acia_tcp_port = %d\n", cfg->acia_tcp_port);
+    fprintf(f, "acia_w65c51n_tx_fault = %d\n", cfg->acia_w65c51n_tx_fault);
+    fprintf(f, "acia_model = %s\n", cfg->acia_model == ACIA_MODEL_W65C51N ? "w65c51n" :
+        cfg->acia_model == ACIA_MODEL_W65C51S ? "w65c51s" : "generic6551");
     fprintf(f, "acia_transport = %s\n", cfg->acia_transport ? "serial" : "tcp");
     fprintf(f, "acia_serial_device = %s\n\n", cfg->acia_serial_device);
 

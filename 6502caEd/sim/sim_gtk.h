@@ -80,6 +80,9 @@ struct sim_win_t {
   GtkWidget *lbl_acia_settings;
   GtkWidget *lbl_acia_cpb; /* cycles per bit */
   GtkWidget *lbl_acia_conn;
+  GtkWidget *chk_acia_tx_fault;
+  GtkWidget *dd_acia_model;
+  bool acia_controls_sync;
   GtkWidget *lbl_acia_transport;
   GtkWidget *dd_acia_transport;
   GtkWidget *entry_acia_device;
@@ -110,6 +113,9 @@ struct sim_win_t {
   /* LCD emulation */
   lcd_ui_t lcd_ui;
   GtkWidget *lcd_panel_widget;  /* outer panel box — show/hide on enable/disable */
+  GtkWidget *via_panels[2];    /* Construct once, show/hide per profile. */
+  GtkWidget *acia_panel_widget;
+  GtkWidget *peripheral_row;
   GtkWidget *sd_panel_widget;   /* SD card panel — show/hide on enable/disable */
   GtkWidget *bottom_col_mid;    /* middle column (LCD+SD) */
   GtkWidget *bottom_col_sep;    /* separator before middle column */

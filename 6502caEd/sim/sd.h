@@ -82,6 +82,7 @@ typedef struct {
     uint64_t    cpu_cycles;     /* cycles elapsed (from sd_tick) */
 
     /* Card image file */
+    bool        read_only;      /* Preserved by reset and enforced by SPI writes. */
     FILE       *fp;             /* open file handle, NULL if no card */
     char        image_path[512];
 

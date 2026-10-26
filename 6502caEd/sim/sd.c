@@ -113,7 +113,7 @@ static void build_csd(sd_t *sd) {
         c[11] = 0x80;
         c[12] = 0x0A;
         c[13] = 0x40;
-        c[14] = 0x00;
+        c[14] = sd->read_only ? 0x10 : 0x00;
         c[15] = crc7(c, 15);
     } else {
         /* CSD version 1.0 (standard SD ≤2GB) */
@@ -141,7 +141,7 @@ static void build_csd(sd_t *sd) {
         c[11] = 0x00;
         c[12] = 0x02;          /* WRITE_BL_LEN=9 */
         c[13] = 0x60;          /* WRITE_BL_LEN low bits + WRITE_BL_PARTIAL */
-        c[14] = 0x00;
+        c[14] = sd->read_only ? 0x10 : 0x00;
         c[15] = crc7(c, 15);
     }
 }
@@ -438,7 +438,10 @@ static void execute_cmd(sd_t *sd) {
     }
 
     case 38: { /* ERASE */
-        if (!sd->erase_start_valid || !sd->erase_end_valid || sd->erase_end < sd->erase_start) {
+        if (sd->read_only) {
+            sd->status |= 0x20;
+            resp_r1(sd, SD_R1_PARAM_ERR);
+        } else if (!sd->erase_start_valid || !sd->erase_end_valid || sd->erase_end < sd->erase_start) {
             resp_r1(sd, SD_R1_ERASE_SEQ);
         } else {
             uint8_t erased[4096];memset(erased, 0xFF, sizeof erased);
@@ -527,6 +530,7 @@ void sd_reset(sd_t *sd) {
     bool enabled = sd->enabled;
     bool strict = sd->strict;
     uint64_t hz = sd->cpu_hz;
+    bool read_only = sd->read_only;
     FILE *fp = sd->fp;
     uint64_t cap = sd->capacity;
     bool sdhc = sd->is_sdhc;
@@ -544,6 +548,7 @@ void sd_reset(sd_t *sd) {
     sd->enabled = enabled;
     sd->strict = strict;
     sd->cpu_hz = hz;
+    sd->read_only = read_only;
     sd->fp = fp;
     sd->capacity = cap;
     sd->is_sdhc = sdhc;
@@ -562,7 +567,7 @@ void sd_reset(sd_t *sd) {
 
 bool sd_open(sd_t *sd, const char *path) {
     sd_close(sd);
-    FILE *f = fopen(path, "r+b");
+    FILE *f = fopen(path, sd->read_only ? "rb" : "r+b");
     if (!f) return false;
 #ifdef _WIN32
     if (_fseeki64(f, 0, SEEK_END) != 0) { fclose(f); return false; }
@@ -880,11 +885,11 @@ int sd_update(sd_t *sd, bool cs, bool sck, bool mosi) {
                     resp_clear(sd);
                     if (!crc_ok) {
                         resp_push(sd, SD_DATA_CRC_ERR);
-                    } else if (!transfer_fits(sd, sd->byte_addr) ||
+                    } else if (sd->read_only || !transfer_fits(sd, sd->byte_addr) ||
                                !image_seek(sd->fp, sd->byte_addr) ||
                                fwrite(sd->block_buf, 1, len, sd->fp) != len ||
                                fflush(sd->fp) != 0) {
-                        sd->status |= 0x04;
+                        sd->status |= sd->read_only ? 0x20 : 0x04;
                         resp_push(sd, SD_DATA_WRITE_ERR);
                     } else {
                         resp_push(sd, SD_DATA_ACCEPTED);

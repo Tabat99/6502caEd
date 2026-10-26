@@ -59,18 +59,23 @@ static void set_nonblocking(SOCKET fd) {
  * ------------------------------------------------------------------------- */
 static void decode_ctrl(acia_t *a) {
     int baud_sel = a->CTRL & 0x0F;
-    a->baud = BAUD_TABLE[baud_sel];
+    a->baud = (a->model == ACIA_MODEL_W65C51N && baud_sel == 0)
+        ? 115200 : BAUD_TABLE[baud_sel];
 
     int wl = (a->CTRL >> 5) & 0x03;
     a->data_bits = 8 - wl;  /* 00=8, 01=7, 10=6, 11=5 */
 
-    a->stop_bits = (a->CTRL & 0x80) ? 2 : 1;
-
-    /* Parity from CMD bits 5-7 */
-    int par = (a->CMD >> 5) & 0x07;
-    if      (par == 0 || par == 4) a->parity = 'N';
-    else if (par == 1)             a->parity = 'O';
-    else                           a->parity = 'E';
+    /* Command bit 5 enables parity; bits 6..7 select O/E/M/S. */
+    static const char parity_modes[] = {'O', 'E', 'M', 'S'};
+    a->parity = (a->model == ACIA_MODEL_W65C51N || !(a->CMD & 0x20))
+        ? 'N' : parity_modes[(a->CMD >> 6) & 3];
+    a->stop_half_bits = 2;
+    if (a->CTRL & 0x80) {
+        if (a->data_bits == 5 && a->parity == 'N') a->stop_half_bits = 3;
+        else if (a->data_bits == 8 && a->parity != 'N') a->stop_half_bits = 2;
+        else a->stop_half_bits = 4;
+    }
+    a->stop_bits = (a->stop_half_bits + 1) / 2; /* Legacy integer field. */
 
     /* Cycles per bit at current baud */
     if (a->baud > 0 && a->cpu_hz > 0)
@@ -80,8 +85,9 @@ static void decode_ctrl(acia_t *a) {
 }
 
 static void update_irq(acia_t *a) {
-    bool rx_irq = (a->CMD & 0x02) && (a->STATUS & ACIA_ST_RDRF);
-    bool tx_irq = ((a->CMD >> 2) & 0x03) == 1 && (a->STATUS & ACIA_ST_TDRE);
+    bool rx_irq = (a->CMD & 0x01) && !(a->CMD & 0x02) && (a->STATUS & ACIA_ST_RDRF);
+    bool tx_irq = a->model != ACIA_MODEL_W65C51N && (a->CMD & 0x01) &&
+        ((a->CMD >> 2) & 0x03) == 1 && (a->STATUS & ACIA_ST_TDRE);
     bool asserted = rx_irq || tx_irq;
     if (asserted) a->STATUS |= ACIA_ST_IRQ;
     else          a->STATUS &= ~ACIA_ST_IRQ;
@@ -99,8 +105,10 @@ static bool native_serial_configure(acia_t *a) {
     HANDLE h=(HANDLE)a->serial_fd;
     if(a->baud<=0 || !GetCommState(h,&dcb)) return false;
     dcb.BaudRate=(DWORD)a->baud;dcb.ByteSize=(BYTE)a->data_bits;
-    dcb.Parity=a->parity=='N'?NOPARITY:a->parity=='O'?ODDPARITY:EVENPARITY;
-    dcb.StopBits=a->stop_bits==2?TWOSTOPBITS:ONESTOPBIT;
+    dcb.Parity=a->parity=='N'?NOPARITY:a->parity=='O'?ODDPARITY:
+        a->parity=='E'?EVENPARITY:a->parity=='M'?MARKPARITY:SPACEPARITY;
+    dcb.StopBits=a->stop_half_bits==3?ONE5STOPBITS:
+        a->stop_half_bits==4?TWOSTOPBITS:ONESTOPBIT;
     dcb.fBinary=TRUE;dcb.fParity=a->parity!='N';
     dcb.fOutxCtsFlow=FALSE;dcb.fOutxDsrFlow=FALSE;
     dcb.fDtrControl=(a->CMD&1)?DTR_CONTROL_ENABLE:DTR_CONTROL_DISABLE;
@@ -117,6 +125,7 @@ static bool native_serial_configure(acia_t *a) {
         case 1200:speed=B1200;break;case 1800:speed=B1800;break;
         case 2400:speed=B2400;break;case 4800:speed=B4800;break;
         case 9600:speed=B9600;break;case 19200:speed=B19200;break;
+        case 115200:speed=B115200;break;
         default:errno=EINVAL;return false;
     }
     struct termios t;
@@ -124,12 +133,22 @@ static bool native_serial_configure(acia_t *a) {
     cfmakeraw(&t);
     t.c_iflag &= ~(IXON|IXOFF|IXANY);
     t.c_cflag&=~(CSIZE|PARENB|PARODD|CSTOPB);
+#ifdef CMSPAR
+    t.c_cflag&=~CMSPAR;
+#endif
     t.c_cflag|=CLOCAL|CREAD;
     switch(a->data_bits) {case 5:t.c_cflag|=CS5;break;case 6:t.c_cflag|=CS6;break;
         case 7:t.c_cflag|=CS7;break;default:t.c_cflag|=CS8;break;}
     if(a->parity!='N') t.c_cflag|=PARENB;
-    if(a->parity=='O') t.c_cflag|=PARODD;
-    if(a->stop_bits==2) t.c_cflag|=CSTOPB;
+    if(a->parity=='O'||a->parity=='M') t.c_cflag|=PARODD;
+    if(a->parity=='M'||a->parity=='S') {
+#ifdef CMSPAR
+        t.c_cflag|=CMSPAR;
+#else
+        errno=EINVAL;return false;
+#endif
+    }
+    if(a->stop_half_bits>2) t.c_cflag|=CSTOPB;
 #ifdef CRTSCTS
     t.c_cflag&=~CRTSCTS;
 #endif
@@ -365,7 +384,8 @@ void acia_reset(acia_t *a) {
         a->STATUS |= ACIA_ST_DCD | ACIA_ST_DSR;
     a->CMD       = 0x00;
     a->TDR_full  = false;
-    a->_irq_state = false;
+    a->tx_overwrites = 0;
+    /* Preserve previous IRQ state until update_irq can notify deassertion. */
     decode_ctrl(a);
     if(a->transport==ACIA_TRANSPORT_SERIAL && acia_connected(a) && !native_serial_configure(a))
         native_serial_failed(a,"Cannot reset serial configuration");
@@ -410,7 +430,7 @@ void acia_tick(acia_t *a) {
     if(!(a->STATUS&ACIA_ST_RDRF)) {
         uint8_t byte;int n=transport_read(a,&byte);
         if(n<0) native_serial_failed(a,"Serial/TCP receive failed");
-        else if(n==1) {a->RDR=byte;a->STATUS|=ACIA_ST_RDRF;update_irq(a);}
+        else if(n==1) {a->RDR=byte & ((1u << a->data_bits) - 1);a->STATUS|=ACIA_ST_RDRF;update_irq(a);}
     }
 }
 
@@ -421,7 +441,9 @@ uint8_t acia_read(acia_t *a, uint8_t reg) {
         update_irq(a);
         return a->RDR;
     case ACIA_STATUS:
-        return a->STATUS;
+        /* Keep internal readiness accurate for timing and IRQ accounting.
+         * The faulty chip exposes TDRE=1 even while its transmitter is busy. */
+        return a->STATUS | ((a->model == ACIA_MODEL_W65C51N && a->tx_fault_enabled) ? ACIA_ST_TDRE : 0);
     case ACIA_CMD:
         return a->CMD;
     case ACIA_CTRL:
@@ -433,13 +455,18 @@ uint8_t acia_read(acia_t *a, uint8_t reg) {
 void acia_write(acia_t *a, uint8_t reg, uint8_t val) {
     switch (reg & 0x03) {
     case ACIA_DATA:
-        if (a->STATUS & ACIA_ST_TDRE) {
-            a->TDR     = val;
+        if ((a->model == ACIA_MODEL_W65C51N && a->tx_fault_enabled) || (a->STATUS & ACIA_ST_TDRE)) {
+            /* Reloading an active shift register disrupts the old frame.
+             * At byte transport resolution discard that unfinished byte
+             * and start timing the replacement. This is not a wire trace. */
+            if (a->TDR_full && a->model == ACIA_MODEL_W65C51N && a->tx_fault_enabled) a->tx_overwrites++;
+            a->TDR     = val & ((1u << a->data_bits) - 1);
             a->TDR_full = true;
             a->STATUS &= ~ACIA_ST_TDRE;
             /* Schedule transmission after one frame worth of cycles */
-            int frame_bits = 1 + a->data_bits + a->stop_bits;
-            a->tx_ready_cycle = a->cycle + (uint64_t)(frame_bits * a->cycles_per_bit);
+            int frame_half_bits = 2 * (1 + a->data_bits + (a->parity != 'N')) + a->stop_half_bits;
+            a->tx_ready_cycle = a->cycle +
+                ((uint64_t)frame_half_bits * a->cycles_per_bit + 1) / 2;
             update_irq(a);
         }
         break;
@@ -477,8 +504,11 @@ void acia_set_cpu_hz(acia_t *a, long cpu_hz) {
 
 void acia_format_settings(acia_t *a, char *buf, int buf_len) {
     /* e.g. "9600 8N1"  or  "2400 7E2" */
-    snprintf(buf, (size_t)buf_len, "%d %d%c%d",
-             a->baud, a->data_bits, a->parity, a->stop_bits);
+    if (a->stop_half_bits == 3)
+        snprintf(buf, (size_t)buf_len, "%d %d%c1.5", a->baud, a->data_bits, a->parity);
+    else
+        snprintf(buf, (size_t)buf_len, "%d %d%c%d",
+                 a->baud, a->data_bits, a->parity, a->stop_half_bits / 2);
 }
 
 /* Return a description of the frame timing for display */
@@ -488,9 +518,27 @@ void acia_format_timing(acia_t *a, char *buf, int buf_len) {
         return;
     }
     /* frame = 1 start + data + stop bits */
-    int frame_bits = 1 + a->data_bits + a->stop_bits;
-    /* bytes per second = baud / frame_bits */
-    int bps = (a->baud > 0) ? a->baud / frame_bits : 0;
+    int frame_half_bits = 2 * (1 + a->data_bits + (a->parity != 'N')) + a->stop_half_bits;
+    int bps = (a->baud > 0) ? (2 * a->baud) / frame_half_bits : 0;
     snprintf(buf, (size_t)buf_len, "cpb:%d ~%dB/s",
              a->cycles_per_bit, bps);
+}
+
+const char *acia_model_name(acia_model_t model) {
+    return model == ACIA_MODEL_W65C51N ? "W65C51N" :
+        model == ACIA_MODEL_W65C51S ? "W65C51S" : "Generic 6551";
+}
+
+void acia_set_model(acia_t *a, acia_model_t model) {
+    a->model = (model == ACIA_MODEL_W65C51N || model == ACIA_MODEL_W65C51S)
+        ? model : ACIA_MODEL_GENERIC_6551;
+    a->tx_fault_enabled = a->model == ACIA_MODEL_W65C51N;
+    decode_ctrl(a);
+    if(a->transport == ACIA_TRANSPORT_SERIAL && acia_connected(a) && !native_serial_configure(a))
+        native_serial_failed(a, "Cannot apply ACIA model framing");
+    update_irq(a);
+}
+
+void acia_set_w65c51n_tx_fault(acia_t *a, bool enabled) {
+    a->tx_fault_enabled = enabled;
 }

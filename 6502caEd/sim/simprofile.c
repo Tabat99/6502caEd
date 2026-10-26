@@ -95,6 +95,7 @@ void simprofile_defaults(simprofile_t *p) {
     p->via2.bank    = PROFILE_BANK_ALL;
     p->via2.addr    = 0x9010;
 
+    p->acia_model = p->acia_tx_bug = p->acia_transport = -1;
     p->acia.enabled = true;
     p->acia.bank    = PROFILE_BANK_ALL;
     p->acia.addr    = 0x9020;
@@ -157,6 +158,18 @@ bool simprofile_load(simprofile_t *p, const char *path) {
     FILE *f = fopen(path, "r");
     if (!f) return false;
 
+    char absolute_path[512];
+    if (path[0] != '/' && path[0] != '\\' &&
+        !(isalpha((unsigned char)path[0]) && path[1] == ':')) {
+        char cwd[512];
+        if (!getcwd(cwd,sizeof(cwd)) || strlen(cwd)+strlen(path)+2 > sizeof(absolute_path)) {
+            fclose(f); return false;
+        }
+        size_t n = strlen(cwd);
+        memcpy(absolute_path,cwd,n); absolute_path[n] = '/';
+        memcpy(absolute_path+n+1,path,strlen(path)+1);
+        path = absolute_path;
+    }
     simprofile_defaults(p);
     snprintf(p->filepath, sizeof(p->filepath), "%s", path);
 
@@ -229,6 +242,20 @@ bool simprofile_load(simprofile_t *p, const char *path) {
             IO_PARSE(acia)
             IO_PARSE(simio_tx)
             IO_PARSE(simio_rx)
+            if (!strcmp(key, "acia_model")) {
+                if (!strcasecmp(val, "generic6551")) p->acia_model = ACIA_MODEL_GENERIC_6551;
+                else if (!strcasecmp(val, "w65c51s")) p->acia_model = ACIA_MODEL_W65C51S;
+                else if (!strcasecmp(val, "w65c51n")) p->acia_model = ACIA_MODEL_W65C51N;
+            } else if (!strcmp(key, "acia_tx_bug") && (!strcmp(val,"0") || !strcmp(val,"1")))
+                p->acia_tx_bug = atoi(val);
+            else if (!strcmp(key, "acia_transport")) {
+                if (!strcasecmp(val,"tcp")) p->acia_transport = ACIA_TRANSPORT_TCP;
+                else if (!strcasecmp(val,"serial")) p->acia_transport = ACIA_TRANSPORT_SERIAL;
+            } else if (!strcmp(key, "acia_tcp_port")) {
+                char *end; long port = strtol(val,&end,10);
+                if (*val && !*end && port >= 1 && port <= 65535) p->acia_tcp_port = (int)port;
+            } else if (!strcmp(key, "acia_serial_device"))
+                snprintf(p->acia_serial_device,sizeof(p->acia_serial_device),"%s",val);
         } else if (strcmp(section, "lcd") == 0) {
             if      (!strcmp(key, "enabled"))   p->lcd.enabled    = parse_bool(val);
             else if (!strcmp(key, "bus_width")) p->lcd.bus_width  = atoi(val);
@@ -252,6 +279,7 @@ bool simprofile_load(simprofile_t *p, const char *path) {
         else if (strcmp(section, "sd") == 0) {
             if      (!strcmp(key, "enabled"))  p->sd.enabled = parse_bool(val);
             else if (!strcmp(key, "strict"))   p->sd.strict  = parse_bool(val);
+            else if (!strcmp(key, "read_only")) p->sd.read_only = parse_bool(val);
             else if (!strcmp(key, "read_us")) {
                 char *end; unsigned long n = strtoul(val, &end, 10);
                 if (*val && !*end && val[0] != '-' && n <= 1000000UL)
@@ -281,9 +309,23 @@ bool simprofile_load(simprofile_t *p, const char *path) {
             else if (!strcmp(key, "mosi"))     spi_pin_parse(val, &p->sd.mosi);
             else if (!strcmp(key, "miso"))     spi_pin_parse(val, &p->sd.miso);
             else if (!strcmp(key, "cs"))       spi_pin_parse(val, &p->sd.cs);
-            else if (!strcmp(key, "image"))    snprintf(p->sd.image_path,
-                                                   sizeof(p->sd.image_path),
-                                                   "%s", val);
+            else if (!strcmp(key, "image")) {
+                p->sd.image_specified = true;
+                /* Resolve ordinary profiles against their own directory. Embedded
+                 * source paths are made absolute by the editor before loading. */
+                bool absolute = val[0]=='/' || val[0]=='\\' ||
+                    (isalpha((unsigned char)val[0]) && val[1]==':');
+                const char *slash = strrchr(path,'/');
+                const char *back = strrchr(path,'\\');
+                if (back && (!slash || back > slash)) slash = back;
+                if (*val && !absolute && slash) {
+                    int dirlen = (int)(slash-path+1);
+                    if ((size_t)dirlen + strlen(val) >= sizeof(p->sd.image_path)) {
+                        fclose(f); return false;
+                    }
+                    snprintf(p->sd.image_path,sizeof(p->sd.image_path),"%.*s%s",dirlen,path,val);
+                } else snprintf(p->sd.image_path,sizeof(p->sd.image_path),"%s",val);
+            }
         }
 
         /* [banking] section */
@@ -354,6 +396,13 @@ bool simprofile_save_as(simprofile_t *p, const char *path) {
     write_io(f, "via1",     &p->via1);
     write_io(f, "via2",     &p->via2);
     write_io(f, "acia",     &p->acia);
+    if (p->acia_model >= 0)
+        fprintf(f,"acia_model = %s\n",p->acia_model == ACIA_MODEL_W65C51N ? "w65c51n" :
+            p->acia_model == ACIA_MODEL_W65C51S ? "w65c51s" : "generic6551");
+    if (p->acia_tx_bug >= 0) fprintf(f,"acia_tx_bug = %d\n",p->acia_tx_bug);
+    if (p->acia_transport >= 0) fprintf(f,"acia_transport = %s\n",p->acia_transport ? "serial" : "tcp");
+    if (p->acia_tcp_port) fprintf(f,"acia_tcp_port = %d\n",p->acia_tcp_port);
+    if (p->acia_serial_device[0]) fprintf(f,"acia_serial_device = %s\n",p->acia_serial_device);
     write_io(f, "simio_tx", &p->simio_tx);
     write_io(f, "simio_rx", &p->simio_rx);
 
@@ -400,6 +449,7 @@ bool simprofile_save_as(simprofile_t *p, const char *path) {
     fprintf(f, "\n[sd]\n");
     fprintf(f, "enabled    = %d\n", p->sd.enabled ? 1 : 0);
     fprintf(f, "strict     = %d\n", p->sd.strict  ? 1 : 0);
+    fprintf(f, "read_only  = %d\n", p->sd.read_only ? 1 : 0);
     fprintf(f, "read_us = %lu\n", (unsigned long)p->sd.timing.read_us);
     fprintf(f, "write_us = %lu\n", (unsigned long)p->sd.timing.write_us);
     fprintf(f, "erase_us = %lu\n", (unsigned long)p->sd.timing.erase_us);

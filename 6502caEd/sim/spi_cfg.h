@@ -60,6 +60,8 @@ typedef struct {
     char        image_path[512];
 
     /* Strict timing enforcement */
+    bool        read_only;      /* Open rb and reject guest writes/erase. */
+    bool        image_specified; /* Explicit empty image means eject. */
     bool        strict;         /* true = enforce SPI/SD timing */
 
     sd_timing_t timing;

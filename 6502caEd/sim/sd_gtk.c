@@ -172,8 +172,9 @@ static void update_status_label(struct sim_win_t *w) {
         if (bslash > slash) slash = bslash;
 #endif
         const char *fname = slash ? slash + 1 : ui->sd.image_path;
-        snprintf(buf, sizeof(buf), "Inserted: %s  (%s%s)",
-                 fname, szbuf, ui->sd.is_sdhc ? " SDHC" : "");
+        snprintf(buf, sizeof(buf), "Inserted: %s  (%s%s%s)",
+                 fname, szbuf, ui->sd.is_sdhc ? " SDHC" : " SDSC",
+                 ui->sd.read_only ? ", read-only" : "");
     }
     if (ui->lbl_status)
         gtk_label_set_text(GTK_LABEL(ui->lbl_status), buf);
@@ -184,6 +185,14 @@ static void update_status_label(struct sim_win_t *w) {
 }
 
 /* File dialog response handlers as static functions */
+/* Keep the editable profile consistent with explicit Insert/Eject actions.
+ * Saving the profile remains an explicit user action. */
+static void remember_sd_image(struct sim_win_t *w) {
+    snprintf(w->sd_ui.cfg.image_path,sizeof(w->sd_ui.cfg.image_path),"%s",w->sd_ui.sd.image_path);
+    w->sd_ui.cfg.image_specified = true;
+    w->profile.sd = w->sd_ui.cfg;
+}
+
 static void attach_response_cb(GObject *src, GAsyncResult *res, gpointer ud) {
     struct sim_win_t *w = (struct sim_win_t *)ud;
     GtkFileDialog *dlg = GTK_FILE_DIALOG(src);
@@ -193,9 +202,10 @@ static void attach_response_cb(GObject *src, GAsyncResult *res, gpointer ud) {
     char *path = g_file_get_path(file);
     g_object_unref(file);
     if (path) {
-        if (sd_open(&w->sd_ui.sd, path))
+        if (sd_open(&w->sd_ui.sd, path)) {
+            remember_sd_image(w);
             update_status_label(w);
-        else {
+        } else {
             GtkAlertDialog *ad = gtk_alert_dialog_new(
                 "Failed to open image file:\n%s", path);
             gtk_alert_dialog_show(ad, GTK_WINDOW(w->window));
@@ -258,6 +268,7 @@ static void on_eject_clicked(GtkButton *btn, gpointer ud) {
     (void)btn;
     struct sim_win_t *w = (struct sim_win_t *)ud;
     sd_close(&w->sd_ui.sd);
+    remember_sd_image(w);
     update_status_label(w);
 }
 
@@ -320,6 +331,7 @@ static void create_ok_cb(GtkButton *btn, gpointer ud) {
         return;
     }
     if (sd_open(&w->sd_ui.sd, path)) {
+        remember_sd_image(w);
         update_status_label(w);
     } else {
         GtkAlertDialog *ad = gtk_alert_dialog_new(
@@ -489,6 +501,7 @@ static void on_strict_toggled(GtkCheckButton *chk, gpointer ud) {
     struct sim_win_t *w = (struct sim_win_t *)ud;
     bool strict = gtk_check_button_get_active(chk);
     w->sd_ui.cfg.strict = strict;
+    w->profile.sd.strict = strict;
     w->sd_ui.sd.strict  = strict;
 }
 
@@ -637,16 +650,21 @@ void sd_ui_apply_cfg(struct sim_win_t *w, const spi_cfg_t *cfg) {
     char mounted_path[sizeof(ui->sd.image_path)];
     g_strlcpy(mounted_path, ui->sd.image_path, sizeof mounted_path);
     int old_mode = ui->sd.card_mode;
+    bool old_read_only = ui->sd.read_only;
     ui->cfg = *cfg;
     sd_set_timing(&ui->sd, &cfg->timing);
     timing_sync_widgets(w);
     ui->sd.strict = cfg->strict;
     ui->sd.enabled = cfg->enabled;
     ui->sd.card_mode = (int)cfg->card_mode;
-    const char *path = cfg->image_path[0] ? cfg->image_path : mounted_path;
+    ui->sd.read_only = cfg->read_only;
+    const char *path = cfg->image_specified || cfg->image_path[0] ? cfg->image_path : mounted_path;
+    if (cfg->image_specified && !path[0]) sd_close(&ui->sd);
     if (path[0] && (!ui->sd.fp || old_mode != ui->sd.card_mode ||
+                    old_read_only != cfg->read_only ||
                     strcmp(path, mounted_path) != 0)) {
-        sd_open(&ui->sd, path);
+        if (!sd_open(&ui->sd, path))
+            g_warning("SD profile: unable to open image: %s", path);
     }
     if (ui->btn_strict)
         gtk_check_button_set_active(GTK_CHECK_BUTTON(ui->btn_strict),
